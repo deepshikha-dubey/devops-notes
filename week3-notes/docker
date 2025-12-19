@@ -1,1 +1,30 @@
+Week 3 Project: Containerized To‑Do App
+
+
+Step 1: Install Docker
+Download Docker Desktop (Windows/Mac) or install Docker Engine (Linux).
+
+Verify installation:
+docker --version
+
+Step 2: Run Your First Container
+Test Docker with:
+docker run hello-world
+This confirms Docker is working.
+
+Step 3: Prepare a Simple App (Todo App) (app.py) file
+
+Step 4: Write a Dockerfile
+
+Step 5: Build the Image
+docker build -t todo-app .
+
+Step 6: Run the Container
+Start your app:
+docker run -p 5000:5000 todo-app
+
+Open browser → http://localhost:5000
+
+Step 7: Optional — Docker Compose (create file docker-compose.yml)
+docker-compose up
 
