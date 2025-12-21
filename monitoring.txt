@@ -1,0 +1,4 @@
+Week 4 Project: Deploy & Monitor on AWS
+
+🎯 Goal
+Deploy your Dockerized app to AWS EC2 and set up basic monitoring with Prometheus/Grafana.
