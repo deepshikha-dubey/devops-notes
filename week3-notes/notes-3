@@ -1,0 +1,170 @@
+201 — Building Images with Dockerfile
+Learn to create custom Docker images using Dockerfiles. Understand image layers, caching, and best practices for efficient image builds.
+
+1. Create your first Dockerfile
+Set up a simple project directory and create a basic Dockerfile.
+
+Commands to Run
+mkdir my-first-image && cd my-first-image
+
+echo FROM ubuntu:22.04 > Dockerfile
+echo RUN apt-get update && apt-get install -y curl >> Dockerfile
+echo CMD ["echo", "Hello from my custom image!"] >> Dockerfile
+
+cat Dockerfile
+
+What This Does
+A Dockerfile is a text file with instructions to build an image. FROM specifies the base image, RUN executes commands during build, and CMD sets the default command when containers start.
+
+Expected Outcome
+You'll have a Dockerfile with three instructions. The cat command displays its contents to verify it was created correctly.
+
+2. Build your first custom image
+Use docker build to create an image from your Dockerfile.
+
+Commands to Run
+docker build -t my-ubuntu:v1 .
+docker images my-ubuntu
+
+What This Does
+docker build reads the Dockerfile and executes each instruction. The -t flag tags the image with a name. The dot (.) specifies the build context (current directory).
+
+Expected Outcome
+You'll see each Dockerfile step execute with output like 'Step 1/3 : FROM ubuntu:22.04'. Finally, your custom image appears in the image list.
+
+Pro Tips
+1. The dot (.) is the build context - all files here are available to the build
+2. Each RUN command creates a new layer
+3. Builds use cache from previous builds to speed up rebuilds
+4. Tag format: name:tag or name:version
+
+3. Run a container from your custom image
+Test your newly built image by running a container.
+
+Commands to Run
+docker run my-ubuntu:v1
+docker run my-ubuntu:v1 curl --version
+
+What This Does
+The first command runs the default CMD from the Dockerfile. The second overrides the CMD to verify curl is installed.
+
+Expected Outcome
+First command outputs 'Hello from my custom image!'. Second shows curl version information, confirming the package was installed during build.
+
+4. Understanding Dockerfile instructions
+
+Commands to Run
+cat > Dockerfile << 'EOF'
+# Base image
+FROM node:18-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Copy files
+COPY package.json .
+
+# Run commands
+RUN npm install
+
+# Copy application code
+COPY . .
+
+# Expose port
+EXPOSE 3000
+
+# Set environment variable
+ENV NODE_ENV=production
+
+# Default command
+CMD ["node", "app.js"]
+EOF
+
+cat Dockerfile
+
+What This Does
+FROM sets base image. WORKDIR sets current directory. COPY adds files from host. RUN executes build commands. EXPOSE documents ports. ENV sets environment variables. CMD defines startup command.
+
+Expected Outcome
+A well-structured Dockerfile demonstrating the most common instructions with comments explaining each section.
+
+Pro Tips
+1. FROM must be the first instruction
+2. WORKDIR creates the directory if it doesn't exist
+3. COPY vs ADD: use COPY for simple file copying
+4. EXPOSE is documentation - doesn't actually publish ports
+5. ENV variables are available at build and runtime
+6. Use comments (#) to document your Dockerfile
+
+5. Create a real application image
+Build a complete Node.js web application image.
+
+6. Build and run the web application
+Build the Node.js application image and run it as a container.
+
+Commands to Run
+docker build -t my-node-app:1.0 .
+docker run -d -p 3000:3000 --name node-app my-node-app:1.0
+docker logs node-app
+docker ps
+
+What This Does
+Build creates the image with Node.js, dependencies, and app code. Run starts a container with port mapping so you can access the web server from your browser.
+
+Expected Outcome
+Build completes successfully. The container runs in background. Logs show 'Server running on port 3000'. Visit http://localhost:3000 to see the app.
+
+Pro Tips
+1. The build takes longer first time as it downloads Node.js base image
+2. npm install runs inside the container during build
+3. Port 3000 inside container maps to port 3000 on your host
+4. Check http://localhost:3000 in your browser to verify
+
+Step 7 Understanding image layers and cache
+See how Docker uses layers and caching to optimize builds.
+
+Commands to Run
+docker history my-node-app:1.0
+echo 'console.log("Updated!");' >> app.js
+docker build -t my-node-app:1.1 .
+docker history my-node-app:1.1
+
+What This Does
+Each Dockerfile instruction creates a layer. Docker caches unchanged layers. When you modify app.js, only layers after the COPY . . instruction rebuild.
+
+Expected Outcome
+History shows all layers and their sizes. The rebuild is much faster because Docker uses cache for node:18-alpine,
+npm install, etc. Only the final layers rebuild. Understanding image layers and cache
+
+Step 8 Optimize layer caching
+Restructure your Dockerfile for maximum cache efficiency.
+
+Commands to Run
+cat > Dockerfile << 'EOF'
+FROM node:18-alpine
+WORKDIR /app
+
+# Copy only package.json first
+COPY package.json .
+RUN npm install
+
+# Copy application code last
+COPY app.js .
+
+EXPOSE 3000
+ENV NODE_ENV=production
+CMD ["node", "app.js"]
+EOF
+
+echo 'console.log("Optimized!");' >> app.js
+docker build -t my-node-app:1.2 .
+
+What This Does
+By copying package.json separately, npm install only reruns when dependencies change. App code changes don't invalidate the npm install cache.
+
+Expected Outcome
+The build uses cache for all steps up to and including 'RUN npm install'. Only the 'COPY app.js' step and later steps rebuild.
+
+step 9. Using .dockerignore
+
+See how Docker uses layers and caching to optimize builds.
