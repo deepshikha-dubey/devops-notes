@@ -166,5 +166,143 @@ Expected Outcome
 The build uses cache for all steps up to and including 'RUN npm install'. Only the 'COPY app.js' step and later steps rebuild.
 
 step 9. Using .dockerignore
-
 See how Docker uses layers and caching to optimize builds.
+Exclude unnecessary files from the build context for faster builds.
+
+Commands to Run
+
+cat > .dockerignore << 'EOF'
+node_modules
+npm-debug.log
+.git
+.gitignore
+.env
+*.md
+.DS_Store
+EOF
+
+echo '# My App' > README.md
+mkdir node_modules && touch node_modules/test.js
+docker build -t my-node-app:1.3 .
+docker run --rm my-node-app:1.3 ls -la /app
+
+What This Does
+.dockerignore works like .gitignore - it excludes files from the build context. This speeds up builds and reduces image size by not copying unnecessary files.
+
+Expected Outcome
+The build doesn't include node_modules from your host or README.md. The container's /app directory only has the files Docker explicitly copied.
+
+Step 10 Build arguments and customization
+Use ARG to parameterize your builds for different environments.
+
+Commands to Run
+
+cat > Dockerfile << 'EOF'
+FROM node:18-alpine
+ARG NODE_ENV=development
+ARG PORT=3000
+WORKDIR /app
+COPY package.json .
+RUN npm install
+COPY app.js .
+
+EXPOSE ${PORT}
+ENV NODE_ENV=${NODE_ENV}
+ENV PORT=${PORT}
+
+CMD ["node", "app.js"]
+EOF
+
+docker build -t my-node-app:dev .
+docker build -t my-node-app:prod --build-arg NODE_ENV=production --build-arg PORT=8080 .
+
+What This Does
+ARG defines build-time variables with optional defaults. Use --build-arg to override them. ARG values can be used in ENV to make them available at runtime.
+
+Expected Outcome
+Two images are built with different configurations. The dev image uses defaults, prod uses custom values specified with --build-arg.
+
+Pro Tips
+1. ARG is only available during build, ENV is available at runtime
+2. Use ARG for build-time customization (versions, features)
+3. Use ENV for runtime configuration (ports, modes)
+4. Combine them: ENV VAR=${ARG_VAR} to pass build args to runtime
+
+Step 11 Inspect and compare images
+Examine differences between your image versions.
+
+Commands to Run
+docker images | grep my-node-app
+docker inspect my-node-app:dev --format '{{.Config.Env}}'
+docker inspect my-node-app:prod --format '{{.Config.Env}}'
+docker history my-node-app:prod
+
+What This Does
+Compare images to see size, layers, and configuration differences. Inspect shows environment variables set during build.
+
+Expected Outcome
+You'll see all versions of my-node-app with their sizes. Environment variables differ between dev and prod images.
+
+Pro Tips
+1. Use docker images to compare image sizes
+2. Inspect reveals all build-time decisions
+3. History shows which layers are shared vs unique
+4.Smaller images are faster to pull and more secure
+
+Step 12 Best practices for Dockerfile
+Apply industry best practices to your Dockerfile.
+
+Commands to Run
+
+cat > Dockerfile << 'EOF'
+# Use specific version tags, not 'latest'
+FROM node:18.20-alpine
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
+WORKDIR /app
+# Install dependencies as root
+COPY package*.json ./
+RUN npm ci --only=production
+# Copy app and change ownership
+COPY --chown=nodejs:nodejs app.js .
+# Switch to non-root user
+USER nodejs
+EXPOSE 3000
+CMD ["node", "app.js"]
+EOF
+
+docker build -t my-node-app:secure .
+docker run --rm my-node-app:secure whoami
+
+What This Does
+Best practices: use specific versions, run as non-root user, use npm ci for reproducible installs, minimize layers, and set proper file ownership.
+
+Expected Outcome
+The image builds successfully. The whoami command returns 'nodejs', confirming the container runs as a non-root user.
+
+Pro Tips
+1. Never use 'latest' tag in production Dockerfiles
+2. Always run containers as non-root for security
+3. npm ci is faster and more reliable than npm install
+4. Combine RUN commands to reduce layers: RUN cmd1 && cmd2
+5. Pin exact versions for reproducible builds
+
+13. Cleanup
+Stop containers and optionally remove images to free space.
+Commands to Run
+
+docker stop node-app python-app
+docker rm node-app python-app
+docker images | grep -E 'my-node-app|my-python-app'
+
+What This Does
+Clean up running containers. The images remain available for future use. Use 'docker rmi' to remove images if needed.
+
+Expected Outcome
+Both containers are stopped and removed. Images are still available in your local image cache.
+
+Pro Tips
+1. Use --rm flag when running containers for automatic cleanup
+2. Keep images if you'll use them again - they're already built
+3. Remove old image versions: docker rmi my-node-app:1.0 my-node-app:1.1
+4. Use 'docker system prune' for comprehensive cleanup
