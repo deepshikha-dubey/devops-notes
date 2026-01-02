@@ -306,3 +306,10 @@ Pro Tips
 2. Keep images if you'll use them again - they're already built
 3. Remove old image versions: docker rmi my-node-app:1.0 my-node-app:1.1
 4. Use 'docker system prune' for comprehensive cleanup
+
+✓ Write Dockerfiles with proper syntax and structure
+✓ Build custom images from Dockerfiles
+✓ Understand and optimize layer caching
+✓ Use build arguments for customization
+✓ Apply security and best practices
+✓ Create images for different languages and frameworks
