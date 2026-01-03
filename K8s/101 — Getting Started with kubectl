@@ -1,0 +1,185 @@
+101 — Getting Started with kubectl
+
+Step 1 Install kubectl
+Install the Kubernetes command-line tool on your system.
+
+Commands to Run
+kubectl version --client
+
+What This Does
+kubectl is the command-line tool for interacting with Kubernetes clusters. This command verifies kubectl is installed and shows the client version.
+
+Step 2 Set up a local Kubernetes cluster
+Create a local Kubernetes cluster for learning. We'll use Docker Desktop or minikube.
+
+Commands to Run
+minikube start --driver=docker
+
+What This Does
+Minikube creates a single-node Kubernetes cluster on your local machine. The --driver=docker flag uses Docker containers to run the cluster components.
+
+Expected Outcome
+You should see messages about downloading and starting cluster components, ending with 'Done! kubectl is now configured to use "minikube"'.
+
+Step 3 Verify cluster connection
+Check that kubectl can connect to your Kubernetes cluster.
+
+Commands to Run
+kubectl cluster-info
+kubectl version
+
+What This Does
+These commands verify connectivity to the cluster and show both client and server versions. The server version is your Kubernetes cluster version.
+
+Expected Outcome
+You should see cluster URLs (control plane, DNS) and matching client/server versions.
+
+Pro Tips
+1. The control plane URL shows where your cluster API is running
+2. Server version should be close to client version
+3. If connection fails, check that your cluster is running
+
+step 4 Explore cluster nodes
+View the nodes (machines) that make up your Kubernetes cluster.
+
+Commands to Run
+kubectl get nodes
+kubectl get nodes -o wide
+
+What This Does
+'kubectl get' is the primary command for listing resources. Nodes are the worker machines (physical or virtual) that run your containers. The -o wide flag shows additional details.
+
+Expected Outcome
+You should see one node (minikube or docker-desktop) with STATUS 'Ready' and ROLES 'control-plane,master'.
+
+Pro Tips
+1. 'get' is the most common kubectl command
+2. -o wide shows more columns (IP, OS, kernel, runtime)
+3. Ready status means the node is healthy and can accept workloads
+4. In production clusters, you'll see multiple nodes
+
+Step 5 Understand kubectl command structure
+Learn the pattern of kubectl commands that you'll use throughout your Kubernetes journey.
+
+Commands to Run
+kubectl --help
+kubectl get --help
+
+What This Does
+kubectl commands follow the pattern: kubectl [command] [resource type] [resource name] [flags]. Understanding this structure helps you learn faster.
+
+Expected Outcome
+You'll see help text showing available commands and their usage patterns.
+
+Pro Tips
+1. Pattern: kubectl [verb] [noun] [name] [flags]
+2. Common verbs: get, describe, create, delete, apply
+3. Common nouns: pods, services, deployments, nodes
+4. Always use --help when unsure about a command
+5. Use -h for short help, --help for detailed help
+
+Step 6 View cluster resources
+See what resources are running in your cluster by default.
+
+Commands to Run
+kubectl get all --all-namespace
+kubectl get namespaces
+
+What This Does
+Namespaces organize resources in a cluster. The --all-namespaces flag shows resources across all namespaces. New clusters have system resources in kube-system namespace.
+
+Expected Outcome
+You'll see system pods, services, and deployments in namespaces like kube-system, kube-public, and default.
+
+Pro Tips
+1. Namespaces are like folders for organizing resources
+2. System components run in kube-system namespace
+3. Your apps typically go in default or custom namespaces
+4. Use 'kubectl get all' to see all common resources
+5. Short flag: -A is same as --all-namespaces
+
+Step 7 Explore kubectl describe
+Learn to get detailed information about cluster resources.
+
+Commands to Run
+kubectl describe node minikube
+
+What This Does
+'kubectl describe' shows detailed information about a specific resource, including configuration, status, events, and conditions.
+
+Expected Outcome
+You'll see extensive details: capacity (CPU, memory), allocatable resources, system info, running pods, and recent events.
+
+Pro Tips
+1. Use 'describe' when you need full details about a resource
+2. Events section at bottom shows recent activity
+3. Great for troubleshooting problems
+4. Can describe any resource type: pods, services, deployments, etc.
+5. If using Docker Desktop, replace 'minikube' with 'docker-desktop'
+
+Step 8 Use kubectl config
+Learn to manage cluster connections and contexts.
+
+Commands to Run
+kubectl config view
+kubectl config get-contexts
+kubectl config current-context
+
+What This Does
+Contexts define which cluster, user, and namespace kubectl uses. This is essential when working with multiple clusters.
+
+Expected Outcome
+You'll see your kubeconfig file contents, available contexts, and the currently active context (minikube or docker-desktop).
+
+Step 9 Check cluster health
+Verify that all cluster components are running properly.
+
+Commands to Run
+kubectl get nodes
+kubectl get pods -n kube-system
+kubectl get componentstatuses
+
+What This Does
+Check cluster health by viewing nodes and system pods. Nodes should be Ready, and kube-system pods should be Running. The componentstatuses command is deprecated but shown for reference.
+
+Expected Outcome
+Nodes show 'Ready' status. kube-system pods (scheduler, controller-manager, kube-proxy, etc.) are Running or Completed. componentstatuses may show 'Unknown' on managed clusters (GKE, EKS, AKS) - this is normal.
+
+Pro Tips
+1 kube-system pods are essential cluster services
+2 Key components: scheduler, controller-manager, etcd, kube-apiserver, kube-proxy
+3 If any system pod is not Running, your cluster may not work properly
+4 Use 'kubectl describe pod [name] -n kube-system' to troubleshoot issues
+5 componentstatuses is deprecated since k8s 1.19 - use 'kubectl get nodes' and system pod health instead
+6 On managed clusters, control plane components aren't visible (they're managed for you)
+
+Step 10 Practice: Explore with kubectl
+Reinforce what you've learned by exploring your cluster on your own.
+
+Commands to Run
+kubectl api-resources
+kubectl explain pod
+kubectl get events --all-namespaces
+kubectl top node
+
+What This Does
+These commands help you discover available resources, understand their structure, see cluster events, and check resource usage. The top command requires metrics-server to be installed.
+
+Expected Outcome
+You'll see all available resource types, pod documentation, and recent cluster events. The 'kubectl top node' command will show CPU and memory usage if metrics-server is installed, or an error message if not (this is normal and can be installed separately).
+
+Pro Tips
+1. 'api-resources' shows what you can create in Kubernetes
+2. 'explain' provides built-in documentation for any resource
+3. 'get events' shows what's happening in the cluster
+4. 'top' requires metrics-server - if it fails, install with: kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+5. On minikube, enable metrics-server with: minikube addons enable metrics-server
+6. On managed clusters (GKE, EKS, AKS), metrics-server may already be installed
+7. Use 'kubectl explain [resource].[field]' for specific fields
+
+✓ Installed and configured kubectl
+✓ Connected to a Kubernetes cluster
+✓ Explored cluster nodes and resources
+✓ Understood kubectl command structure
+✓ Learned to view detailed resource information
+✓ Managed cluster contexts
