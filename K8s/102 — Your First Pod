@@ -1,0 +1,238 @@
+102 — Your First Pod
+
+Step 1 Create your first pod imperatively
+Use kubectl run to quickly create a pod from the command line.
+
+Commands to Run
+kubectl run nginx-pod --image=nginx:alpine
+kubectl get pods
+kubectl get pods -o wide
+
+What This Does
+'kubectl run' creates a pod with the specified name and container image. Pods are the smallest deployable units in Kubernetes - typically one container, sometimes more.
+
+Expected Outcome
+You'll see the pod creation confirmation, then status showing ContainerCreating → Running. The -o wide flag shows the node and IP address.
+
+Pro Tips
+1. Pods are ephemeral - they can be deleted and recreated
+2. Each pod gets a unique IP address within the cluster
+3. ContainerCreating status means Kubernetes is pulling the image
+4. Use --image to specify any Docker image from Docker Hub or registries
+5. Pod names must be unique within a namespace
+
+Step 2 Inspect pod details
+Learn to get detailed information about your pod.
+
+Commands to Run
+kubectl describe pod nginx-pod
+kubectl get pod nginx-pod -o yaml
+
+What This Does
+'describe' shows human-readable details including events, status, and configuration. '-o yaml' outputs the full resource definition as YAML.
+
+Expected Outcome
+You'll see detailed pod info: container image, status, IP, node, events. The YAML output shows the complete pod specification.
+
+Pro Tips
+1. Events at the bottom of 'describe' show what happened
+2. Look for 'Pulling image', 'Pulled image', 'Started container'
+3. -o yaml is great for understanding resource structure
+4. Use -o json for JSON output instead
+5. Events help troubleshoot why pods aren't starting
+
+Step 3  View pod logs
+Access the container logs to see application output.
+
+Commands to Run
+kubectl logs nginx-pod
+kubectl logs nginx-pod --tail=10
+kubectl logs nginx-pod --follow
+
+What This Does
+'kubectl logs' streams container stdout/stderr. --tail limits output, --follow streams logs in real-time like 'tail -f'.
+
+Expected Outcome
+You'll see nginx startup logs. --tail shows last 10 lines. --follow streams new logs (Ctrl+C to exit).
+
+Pro Tips
+1. Logs are essential for debugging applications
+2. --follow (or -f) streams logs in real-time
+3. --tail=N shows only last N lines
+4. --previous shows logs from a crashed container
+5. For multi-container pods, add -c [container-name]
+
+Step 4 Execute commands in a pod
+Run commands inside a running container using kubectl exec.
+
+Commands to Run
+kubectl exec nginx-pod -- nginx -v
+kubectl exec -it nginx-pod -- sh
+ls -la
+cat /etc/nginx/nginx.conf
+exit
+
+What This Does
+'kubectl exec' runs commands in a container. The -it flags enable interactive terminal access. This is like 'docker exec' but for Kubernetes.
+
+Expected Outcome
+First command shows nginx version. Interactive shell lets you explore the container filesystem. Exit returns you to your host terminal.
+
+Pro Tips
+1. Use -it for interactive shells (sh, bash, etc.)
+2. Commands after -- run inside the container
+3. Great for debugging and exploring container environment
+4. Alpine images use 'sh', Ubuntu images typically have 'bash'
+5. In multi-container pods: kubectl exec [pod] -c [container] -- [command]
+
+Step 5 Create a pod with YAML
+Use declarative YAML manifests for more control and reproducibility.
+
+Commands to Run
+
+cat > pod-demo.yaml << 'EOF'
+apiVersion: v1
+kind: Pod
+metadata:
+  name: webapp-pod
+  labels:
+    app: webapp
+    environment: dev
+spec:
+  containers:
+  - name: webapp
+    image: httpd:alpine
+    ports:
+    - containerPort: 80
+EOF
+
+cat pod-demo.yaml
+kubectl apply -f pod-demo.yaml
+kubectl get pods
+
+What This Does
+YAML manifests define resources declaratively. 'kubectl apply' creates or updates resources. This is the preferred production approach.
+
+Expected Outcome
+File created with pod definition. 'kubectl apply' creates the pod. Both nginx-pod and webapp-pod now appear in the list.
+
+Pro Tips
+1. YAML is the standard for Kubernetes resources
+2. apiVersion and kind identify the resource type
+3. metadata includes name and labels
+4. spec defines the desired state
+5. Labels are key-value pairs for organizing resources
+6. Ports in spec are documentation (not enforcement)
+
+Step 6 Work with labels and selectors
+Use labels to organize and query pods.
+
+Commands to Run
+kubectl get pods --show-labels
+kubectl get pods -l app=webapp
+kubectl get pods -l environment=dev
+kubectl label pod nginx-pod tier=frontend
+
+What This Does
+Labels are metadata for organizing resources. Selectors filter resources by labels. This is fundamental to how Kubernetes operates.
+
+Expected Outcome
+You'll see all labels, filter pods by label, and add a new label to nginx-pod.
+
+Pro Tips
+1. Labels are arbitrary key-value pairs
+2. Use labels for app name, version, environment, tier, etc.
+3. Selectors use format: -l key=value
+4. Can chain selectors: -l app=web,tier=frontend
+5. Services, Deployments, and other resources use label selectors
+6. Convention: use lowercase, hyphens for multi-word values
+
+Step 7 Port forwarding to pods
+Access pod services from your local machine using port forwarding.
+
+Commands to Run
+kubectl port-forward pod/webapp-pod 8080:80
+
+What This Does
+'kubectl port-forward' creates a tunnel from your local machine to the pod. localhost:8080 now routes to the pod's port 80.
+
+Expected Outcome
+Port forwarding starts. In another terminal, 'curl http://localhost:8080' shows the Apache default page. Ctrl+C stops forwarding.
+
+Pro Tips
+1. Format: kubectl port-forward [pod] [local-port]:[pod-port]
+2. Great for testing without exposing services
+3. Keeps running until you press Ctrl+C
+4. Open another terminal to test with curl or browser
+5. In production, use Services instead of port-forward
+6. Can also forward to services: kubectl port-forward service/[name] [ports]
+
+Step 8 Update pod labels
+Modify pod labels and understand immutability.
+
+Commands to Run
+kubectl label pod webapp-pod version=1.0
+kubectl get pods --show-labels
+kubectl label pod webapp-pod environment=production --overwrite
+
+What This Does
+Labels can be added or modified. Use --overwrite to change existing labels. Most pod spec fields are immutable after creation.
+
+Expected Outcome
+New label added. All labels visible. Environment label updated from 'dev' to 'production'.
+
+Pro Tips
+1. Labels can be changed anytime without recreating pod
+2. Use --overwrite to modify existing labels
+3. To remove a label: kubectl label pod [name] [key]-
+4. Label changes don't restart the pod
+5. However, most spec fields require pod recreation to change
+
+Step 9 Generate YAML from running pods
+Export existing pod definitions as YAML for backup or reference.
+
+Commands to Run
+kubectl get pod nginx-pod -o yaml > nginx-pod-backup.yaml
+kubectl get pod webapp-pod -o yaml > webapp-pod-clean.yaml
+✅ How to See the First 20 Lines of a File in Windows
+Get-Content webapp-pod-clean.yaml -TotalCount 20
+head -20 webapp-pod-clean.yaml
+
+What This Does
+You can export any resource as YAML. This is useful for backups, documentation, or creating similar resources. The exported YAML includes cluster-specific fields that need to be manually removed before reusing as a template.
+
+Expected Outcome
+Two YAML files created containing pod definitions. The head command shows the file contents with metadata fields that should be removed (uid, resourceVersion, creationTimestamp, status) before reusing the YAML.
+
+
+
+Pro Tips
+1. Great for creating templates from existing resources
+2. Manually remove these fields before reapplying: uid, resourceVersion, creationTimestamp, selfLink, status
+3. The metadata.name should be changed if creating a new pod
+4. Keep only spec and basic metadata (name, labels, annotations)
+5. Tools like yq can automate field removal: yq 'del(.metadata.uid, .metadata.resourceVersion, .status)' file.yaml
+
+Step 10 Delete pods
+Clean up pods when they're no longer needed.
+
+Commands to Run
+kubectl delete pod nginx-pod
+kubectl get pods
+kubectl delete -f pod-demo.yaml
+kubectl get pods
+kubectl delete pod --all
+
+What This Does
+Pods can be deleted by name, by file, or in bulk. Deleted pods are terminated and removed from the cluster.
+
+✓ Created pods imperatively and declaratively
+✓ Inspected pod details and logs
+✓ Executed commands inside containers
+✓ Worked with labels and selectors
+✓ Used port forwarding for local access
+✓ Managed pod lifecycle
+
+
+Pod names must be unique within a namespace
+Pod names must be unique within a namespac
