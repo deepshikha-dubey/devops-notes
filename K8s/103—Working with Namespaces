@@ -1,0 +1,135 @@
+103 — Working with Namespaces
+
+Step 1 View existing namespaces
+Explore the default namespaces in your Kubernetes cluster.
+
+Commands to Run
+kubectl get namespaces
+kubectl get ns
+
+What This Does
+Namespaces provide scope for resource names and allow you to divide cluster resources. Every cluster starts with default namespaces.
+
+Expected Outcome
+You'll see default namespaces: default, kube-system, kube-public, and kube-node-lease.
+
+Pro Tips
+1. 'ns' is a shorthand for 'namespaces'
+2. default: where resources go if no namespace specified
+3. kube-system: Kubernetes system components
+4.kube-public: publicly readable, mostly unused
+5. kube-node-lease: node heartbeat data (v1.13+)
+
+Step 2 View resources in a namespace
+See what resources exist in specific namespaces.
+
+Commands to Run
+kubectl get pods
+kubectl get pods -n kube-system
+kubectl get all -n kube-system
+
+What This Does
+Without -n flag, kubectl uses the default namespace. Use -n to specify a namespace. System pods run in kube-system.
+
+Expected Outcome
+Default namespace is likely empty or has your practice pods. kube-system shows DNS, proxy, and other system pods.
+
+Pro Tips
+1. -n [namespace] specifies which namespace to use
+2. 'get all' shows pods, services, deployments, and more
+3. System critical pods run in kube-system
+4. Never delete resources in kube-system unless you know what you're doing
+
+Step 3 Create a new namespace
+Create custom namespaces for organizing your applications.
+
+Commands to Run
+kubectl create namespace development
+kubectl create ns staging
+kubectl get namespaces
+
+What This Does
+'kubectl create namespace' creates a new namespace. You can also use the shorthand 'ns'.
+
+Expected Outcome
+Two new namespaces created: development and staging. Both appear in the namespace list.
+
+Pro Tips
+1. Namespace names must be DNS-compatible (lowercase, alphanumeric, hyphens)
+2. Common pattern: dev, staging, production namespaces
+3. Can also use YAML: apiVersion: v1, kind: Namespace
+4. Namespaces are cluster-wide (not nested)
+
+Step 4 Create resources in a namespace
+Deploy pods to specific namespaces.
+
+Commands to Run
+kubectl run dev-nginx --image=nginx:alpine -n development
+kubectl run staging-nginx --image=nginx:alpine -n staging
+kubectl get pods --all-namespaces
+
+What This Does
+The -n flag specifies which namespace to create resources in. --all-namespaces shows pods across all namespaces.
+
+Expected Outcome
+Pods created in respective namespaces. --all-namespaces shows pods with their NAMESPACE column.
+
+Pro Tips
+1. Always specify namespace with -n when creating resources
+2. Without -n, resources go to 'default' namespace
+3. -A is shorthand for --all-namespaces
+4. Resources in different namespaces can have the same name
+5. This enables environment separation
+
+Step 5 Set default namespace for context
+Configure kubectl to use a specific namespace by default.
+
+Commands to Run
+kubectl config view --minify
+kubectl config set-context --current --namespace=development
+kubectl get pods
+kubectl config set-context --current --namespace=default
+
+What This Does
+Set the default namespace for the current context so you don't need -n flag for every command.
+
+Expected Outcome
+After setting context, 'kubectl get pods' shows pods from development namespace without needing -n flag.
+
+Pro Tips
+1. This changes which namespace is used by default
+2. Current context shown with 'kubectl config current-context'
+3. Great for working intensively in one namespace
+4. Still use -n to access other namespaces temporarily
+5. kubens tool makes this even easier (if installed)
+
+Step 6 Create namespace with YAML
+Use declarative YAML to create namespaces with metadata.
+
+Commands to Run
+
+cat > namespace-prod.yaml << 'EOF'
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: production
+  labels:
+    environment: production
+    team: platform
+EOF
+
+kubectl apply -f namespace-prod.yaml
+kubectl get ns production --show-labels
+
+What This Does
+YAML manifests allow adding labels and annotations to namespaces for better organization.
+
+Expected Outcome
+Production namespace created with custom labels visible with --show-labels flag.
+
+Pro Tips
+1. Labels on namespaces help with organization and policies
+2. Useful for applying network policies or resource quotas
+3. Can add annotations for documentation
+4. Version control your namespace definitions
+5. Combine with GitOps workflows
