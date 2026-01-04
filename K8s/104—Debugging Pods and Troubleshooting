@@ -1,0 +1,225 @@
+104 — Debugging Pods and Troubleshooting
+
+Step 1 Create a problematic pod
+Deploy a pod with an intentional error to practice debugging.
+
+Commands to Run
+kubectl run broken-pod --image=nginx:invalid-tag
+
+What This Does
+This pod will fail because the image tag doesn't exist. This simulates real-world image pull failures.
+
+Expected Outcome
+Pod created but will show ImagePullBackOff or ErrImagePull status.
+
+Pro Tips
+1. ImagePullBackOff means Kubernetes can't download the image
+2. Kubernetes retries with exponential backoff
+3. This is one of the most common pod failures
+
+Step 2 Check pod status
+Use multiple methods to see pod health.
+
+Commands to Run
+kubectl get pods
+kubectl get pods -o wide
+kubectl get pod broken-pod -o jsonpath='{.status.phase}'
+
+What This Does
+Pod status shows high-level state. The jsonpath query extracts specific fields from pod configuration.
+
+Expected Outcome
+Status shows ErrImagePull or ImagePullBackOff. Phase shows Pending.
+
+Pro Tips
+1. Common phases: Pending, Running, Succeeded, Failed, Unknown
+2. Status vs Phase: Status is more detailed
+3. jsonpath is powerful for extracting specific fields
+4. Use -o jsonpath for scripting and automation
+
+Step 3 View pod events
+Use kubectl describe to see what went wrong.
+
+Commands to Run
+kubectl describe pod broken-pod
+
+What This Does
+Events at the bottom of 'describe' output show the timeline of what happened with the pod.
+
+Expected Outcome
+Events section shows 'Failed to pull image' with detailed error message about invalid tag.
+
+Pro Tips
+1. Events are chronologically ordered
+2. Look for Warning and Error events first
+3. Events show image pulls, mounts, scheduling, health checks
+4. Events are retained for ~1 hour by default
+5. This is your first stop when debugging
+
+Step 4 View cluster-wide events
+See all recent events across the cluster.
+
+Commands to Run
+kubectl get events --sort-by='.lastTimestamp'
+kubectl get events --field-selector involvedObject.name=broken-pod
+
+What This Does
+Cluster events show activity across all resources. Field selectors filter events for specific resources.
+
+Expected Outcome
+All recent events sorted by time. Second command shows only events for broken-pod.
+
+Pro Tips
+1. --sort-by orders events by timestamp
+2. --field-selector filters events
+3. Can filter by namespace, type, reason, etc.
+4. Events are separate resources, not just pod metadata
+5. Use 'kubectl get events -w' to watch events in real-time
+
+Step 5 Fix and redeploy the pod
+Delete the broken pod and create a working version.
+
+Commands to Run
+kubectl delete pod broken-pod
+kubectl run working-pod --image=nginx:alpine
+kubectl get pods -w
+
+What This Does
+Delete and recreate with correct image. The -w flag watches pods update in real-time.
+
+Expected Outcome
+Broken pod deleted. New pod goes from ContainerCreating to Running. Watch shows live status updates.
+
+Pro Tips
+1. -w (watch) streams status changes until you press Ctrl+C
+2. Watch is great for seeing pod startup progression
+3. In production, use Deployments instead of manual pod deletion
+4. Deployments handle pod recreation automatically
+
+Step 6 Create a crashing pod
+Deploy a pod that starts but crashes immediately.
+
+Commands to Run
+kubectl run crashloop-pod --image=alpine --command -- /bin/sh -c "exit 1"
+
+What This Does
+This pod's container exits immediately with error code 1. Kubernetes will restart it repeatedly.
+
+Expected Outcome
+Pod enters CrashLoopBackOff status as Kubernetes repeatedly tries to restart it.
+
+Pro Tips
+1. CrashLoopBackOff means container keeps crashing
+2. Kubernetes increases delay between restart attempts
+3. Check logs to see why container is exiting
+4. Common causes: missing dependencies, config errors, port conflicts
+
+Step 7 Debug the crashing pod
+Use logs to understand why the container keeps crashing.
+
+Commands to Run
+kubectl get pod crashloop-pod
+kubectl logs crashloop-pod
+kubectl logs crashloop-pod --previous
+kubectl describe pod crashloop-pod
+
+What This Does
+Current logs may be empty if container just crashed. --previous shows logs from the last crashed container.
+
+Expected Outcome
+Pod shows CrashLoopBackOff with increasing restart count. --previous shows the exit command executed.
+
+Pro Tips
+1. --previous is crucial for debugging crash loops
+2. Current logs only show active container
+3. RESTARTS column increases with each crash
+4. Back-off delay increases: 10s, 20s, 40s, up to 5 minutes
+5 Check both logs and events for full picture
+
+Step 8 Create a pod with resource issues
+Deploy a pod requesting more resources than available.
+
+Commands to Run
+
+cat > resource-pod.yaml << 'EOF'
+apiVersion: v1
+kind: Pod
+metadata:
+  name: resource-pod
+spec:
+  containers:
+  - name: app
+    image: nginx:alpine
+    resources:
+      requests:
+        memory: "999Gi"
+        cpu: "999"
+EOF
+
+kubectl apply -f resource-pod.yaml
+kubectl get pod resource-pod
+kubectl describe pod resource-pod
+
+What This Does
+Pod requests unrealistic resources (999GB RAM, 999 CPUs). Kubernetes can't schedule it because no node has these resources.
+
+Expected Outcome
+Pod stays in Pending state. Events show 'Insufficient cpu' or 'Insufficient memory'.
+
+Pro Tips
+1. Pending status often means scheduling problems
+2. Check events for: Insufficient resources, taints, node selectors
+3. Resources have 'requests' (guaranteed) and 'limits' (maximum)
+4. Scheduler only considers requests, not limits
+5. Use 'kubectl top nodes' to see available resources
+
+Step 9 Use ephemeral debug containers
+Debug running pods without modifying them.
+
+Commands to Run
+kubectl delete pod resource-pod
+kubectl run debug-target --image=nginx:alpine
+kubectl debug debug-target -it --image=busybox --target=debug-target
+
+What This Does
+Ephemeral containers are temporary debugging containers added to running pods without restarting them.
+
+Expected Outcome
+Interactive busybox shell with access to debug-target's process namespace. Great for debugging minimalist containers.
+
+Pro Tips
+1 Ephemeral containers share pod's network and volumes
+2 Perfect for distroless or minimal images without debugging tools
+3 Container disappears when session ends
+4 Requires Kubernetes 1.23+ with feature gate enabled
+5 Use busybox or alpine for debugging tools
+6 Can inspect processes, network, and filesystem
+
+Step 10 Debug with node access
+Access the node where a pod is running for deep debugging.
+
+Commands to Run
+kubectl get pod debug-target -o wide
+kubectl debug node/minikube -it --image=ubuntu
+crictl ps
+exit
+
+What This Does
+kubectl debug can create privileged pods on nodes for low-level debugging of node issues.
+
+Expected Outcome
+Shell access to the node itself. Can inspect container runtime, logs, and system resources.
+
+Pro Tips
+1 Node debugging requires cluster-admin privileges
+2 crictl is the container runtime CLI (replaces docker on nodes)
+3 Node shell has access to /host filesystem
+4 Use for debugging network, storage, or runtime issues
+5 Be careful - you have root access to the node
+6 Replace 'minikube' with your node name from 'kubectl get nodes'
+
+✓ Diagnose pod failures with describe and events
+✓ Use logs effectively including --previous flag
+✓ Understand common failure modes (ImagePull, CrashLoop, Pending)
+✓ Debug running pods with ephemeral containers
+✓ Access nodes for deep troubleshooting
