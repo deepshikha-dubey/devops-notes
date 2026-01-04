@@ -133,3 +133,90 @@ Pro Tips
 3. Can add annotations for documentation
 4. Version control your namespace definitions
 5. Combine with GitOps workflows
+
+Step 7 Describe namespace details
+View detailed information about namespaces including resource quotas.
+
+Commands to Run
+kubectl describe namespace development
+kubectl describe ns production
+
+What This Does
+'kubectl describe' shows namespace details including labels, status, and resource quotas (if configured).
+
+Expected Outcome
+You'll see namespace name, labels, status (Active), and that no resource quota or limits are set (yet).
+
+Step 8 Copy resources between namespaces
+Export resources from one namespace and recreate in another.
+
+Commands to Run
+
+kubectl get pod dev-nginx -n development -o yaml > exported-pod.yaml
+sed -i.bak 's/namespace: development/namespace: production/' exported-pod.yaml
+sed -i.bak '/resourceVersion:/d' exported-pod.yaml
+sed -i.bak '/uid:/d' exported-pod.yaml
+kubectl apply -f exported-pod.yaml
+
+What This Does
+Export resource YAML, modify namespace and remove cluster-specific fields, then apply to new namespace.
+
+Expected Outcome
+Pod definition exported, namespace changed in YAML, and pod created in production namespace.
+
+Pro Tips
+1. Must remove uid, resourceVersion, and status fields
+2. Change namespace in metadata section
+3. Alternatively, change name and deploy to same namespace
+4. This technique works for any resource type
+5. On Mac, sed -i requires .bak extension; on Linux, can use sed -i without it
+
+Step 9 View resource usage by namespace
+See which namespaces are using cluster resources.
+
+Commands to Run
+kubectl get pods --all-namespaces
+kubectl top pods --all-namespaces
+kubectl top nodes
+
+What This Does
+Monitor resource consumption across namespaces to understand cluster utilization.
+
+Expected Outcome
+List of all pods by namespace. 'top' commands show CPU and memory usage (requires metrics-server).
+
+Pro Tips
+1. 'kubectl top' requires metrics-server installed
+2. On minikube: enable with 'minikube addons enable metrics-server'
+3. Shows actual resource usage, not requests/limits
+4. Essential for capacity planning
+5. Can filter by namespace with -n flag
+
+Step 10 Delete namespaces
+Remove namespaces and understand the implications.
+
+Commands to Run
+kubectl delete namespace staging
+kubectl get pods -n staging
+kubectl get ns
+
+What This Does
+Deleting a namespace deletes ALL resources within it. This is irreversible and takes time for cleanup.
+
+Expected Outcome
+Staging namespace enters 'Terminating' state, then disappears. All pods in it are deleted.
+
+Pro Tips
+1. Deleting a namespace deletes EVERYTHING in it
+2. Takes time - Kubernetes gracefully terminates all resources
+3. Check status with 'kubectl get ns' during deletion
+4. Can't delete default, kube-system, or kube-public namespaces
+5. In production, protect important namespaces with RBAC
+6. Consider using finalizers for cleanup hooks
+
+✓ Understand namespace purpose and default namespaces
+✓ Create and manage custom namespaces
+✓ Deploy resources to specific namespaces
+✓ Configure default namespace for context
+✓ Move resources between namespaces
+✓ Delete namespaces safely
