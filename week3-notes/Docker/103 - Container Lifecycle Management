@@ -1,0 +1,204 @@
+103 - Container Lifecycle Management
+1. Understanding container states
+Learn about the different states a container can be in: created, running, paused, exited.
+
+Commands to Run
+docker run -d --name demo-nginx nginx
+docker ps
+docker stop demo-nginx
+docker ps -a
+
+What This Does
+Containers transition through states: created → running → stopped (exited). The `ps` command shows running containers, while `ps -a` shows all containers regardless of state.
+
+2. Start and restart containers
+Learn the difference between starting a stopped container and restarting a running one.
+
+Commands to Run
+docker start demo-nginx
+docker ps
+docker restart demo-nginx
+docker ps
+
+What This Does
+`docker start` resumes a stopped container. `docker restart` stops and then starts a container in one command. Both preserve the container's data.
+
+3. Pause and unpause containers
+Temporarily freeze a container's processes without stopping it.
+Commands to Run
+docker pause demo-nginx
+Copy
+docker ps
+Copy
+docker unpause demo-nginx
+Copy
+docker ps
+Copy
+What This Does
+Pausing freezes all processes in the container using cgroups. The container remains in memory but consumes no CPU. Useful for temporarily halting resource-intensive containers.
+
+Expected Outcome
+When paused, the container status shows 'Paused'. After unpause, it returns to 'Up' status and resumes immediately where it left off.
+
+4. Execute commands in running containers
+Run commands inside a live container without stopping it.
+
+Commands to Run
+docker exec demo-nginx ls /usr/share/nginx/html
+docker exec demo-nginx cat /etc/nginx/nginx.conf
+docker exec -it demo-nginx bash
+
+What This Does
+`docker exec` runs a new process inside a running container. The `-it` flags give you an interactive terminal. Type 'exit' to leave without stopping the container.
+
+Expected Outcome
+You'll see directory contents, config file content, and then get an interactive shell inside the running container.
+
+5. View container logs with filters
+Access container output with timestamps and filtering options.
+
+Commands to Run
+docker logs demo-nginx
+docker logs --tail 20 demo-nginx
+docker logs --since 5m demo-nginx
+docker logs -f demo-nginx
+
+What This Does
+Logs show everything written to stdout/stderr. Use --tail to limit lines, --since for time range, and -f to follow in real-time. Press Ctrl+C to stop following.
+
+Expected Outcome
+You'll see nginx access and error logs. The -f option streams new log entries as they appear.
+
+6. Inspect container details
+View comprehensive information about a container's configuration and state.
+
+Commands to Run
+docker inspect demo-nginx
+docker inspect --format '{{.State.Status}}' demo-nginx
+docker inspect --format '{{.NetworkSettings.IPAddress}}' demo-nginx
+docker inspect --format '{{.Config.Image}}' demo-nginx
+
+What This Does
+Inspect returns detailed JSON about the container. Use --format with Go templates to extract specific fields like IP address, status, or volumes.
+
+Expected Outcome
+First command shows full JSON. Subsequent commands show just the requested field: status, IP address, and image name.
+
+7. Monitor container resource usage
+Track CPU, memory, network, and disk I/O in real-time.
+
+Commands to Run
+docker stats demo-nginx
+docker stats --no-stream demo-nginx
+
+What This Does
+Stats displays live resource consumption. Without --no-stream, it updates continuously. With it, shows a single snapshot. Press Ctrl+C to exit continuous mode.
+
+Expected Outcome
+You'll see a table with CPU %, memory usage, network I/O, and block I/O updating in real-time.
+
+8. Copy files between host and container
+Transfer files to and from containers without using volumes.
+
+Commands to Run
+echo '<h1>Hello from Docker!</h1>' > custom.html
+docker cp custom.html demo-nginx:/usr/share/nginx/html/
+docker exec demo-nginx cat /usr/share/nginx/html/custom.html
+docker cp demo-nginx:/etc/nginx/nginx.conf ./nginx-backup.conf
+
+What This Does
+The `docker cp` command copies files between host and container. Works with both running and stopped containers. Format: source → destination.
+
+Expected Outcome
+The HTML file is copied into the container and can be accessed. The config file is copied from container to your current directory.
+
+Pro Tips
+1 Copy directories: docker cp ./folder container:/path/
+2 Works even if container is stopped
+3 Use this for quick config changes or log extraction
+4 For persistent data, use volumes instead (covered in later lessons)
+
+9. Rename and update containers
+Change container names and update configurations.
+
+Commands to Run
+docker rename demo-nginx my-webserver
+docker ps
+docker update --memory 512m my-webserver
+docker inspect --format '{{.HostConfig.Memory}}' my-webserver
+
+What This Does
+Rename changes a container's name. Update modifies resource constraints like memory and CPU limits on running containers without restarting.
+
+Expected Outcome
+The container now appears with the new name. Memory limit is set to 512MB (shown in bytes in inspect output).
+
+10. View container differences
+See what files have changed in a container compared to its image.
+
+Commands to Run
+docker diff my-webserver
+
+What This Does
+Shows filesystem changes: A (added), D (deleted), C (changed). Useful for understanding what a container has modified.
+
+Expected Outcome
+You'll see files added or changed, including the custom.html you copied earlier.
+
+11. Attach to a running container
+Connect to a container's main process stdin/stdout.
+
+Commands to Run
+docker run -d --name test-ubuntu ubuntu bash -c 'while true; do date; sleep 2; done'
+docker attach test-ubuntu
+
+What This Does
+Attach connects your terminal to the container's main process. Press Ctrl+C to detach (this will stop the container unless you use Ctrl+P, Ctrl+Q).
+
+Expected Outcome
+You'll see date output every 2 seconds. Use Ctrl+P then Ctrl+Q to detach without stopping, or Ctrl+C to stop the container.
+
+12. Container cleanup strategies
+Learn efficient ways to remove containers and free resources.
+
+Commands to Run
+docker stop my-webserver test-ubuntu
+docker rm my-webserver test-ubuntu
+docker ps -a
+docker container prune
+docker ps -a
+
+What This Does
+Stop containers before removing them, or use 'docker rm -f' to force remove. Prune removes all stopped containers at once - useful for bulk cleanup.
+
+Expected Outcome
+Containers are removed from the system. Prune asks for confirmation and shows how much space was reclaimed.
+
+13. Practice: Complete container lifecycle
+Put it all together by managing a container through its entire lifecycle.
+
+Commands to Run
+docker run -d --name practice-redis redis:alpine
+docker ps
+docker exec practice-redis redis-cli PING
+docker logs practice-redis
+docker stats --no-stream practice-redis
+docker pause practice-redis
+docker unpause practice-redis
+docker restart practice-redis
+docker stop practice-redis
+docker rm practice-redis
+
+What This Does
+This workflow demonstrates the complete container lifecycle: create, verify, execute commands, check logs, monitor resources, pause/unpause, restart, and finally cleanup.
+
+Expected Outcome
+Each command succeeds. The redis-cli PING returns 'PONG'. Stats show resource usage. The container is cleanly removed at the end.
+
+✓ Understand container lifecycle and states
+✓ Start, stop, pause, and restart containers
+✓ Execute commands and access shells in running containers
+✓ View logs and monitor resource usage
+✓ Copy files between host and containers
+✓ Inspect container configuration and changes
+✓ Efficiently clean up containers
