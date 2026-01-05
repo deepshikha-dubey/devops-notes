@@ -163,3 +163,126 @@ Pro Tips
 4 --retries: failures needed to mark unhealthy (default 3)
 5 Exit 0 = healthy, exit 1 = unhealthy
 6 Orchestrators like Kubernetes can use this to restart unhealthy containers
+
+in local: New-Item -ItemType Directory -Force -Path config, logs (mkdir -p config logs)
+New-Item -ItemType File -Force -Path config/app.yml, config/db.yml, logs/app.log (touch config/app.yml config/db.yml logs/app.log)
+
+Step 5 Advanced COPY patterns
+Use wildcards, multiple sources, and ownership in COPY instructions.
+
+Commands to Run
+mkdir -p config logs
+touch config/app.yml config/db.yml logs/app.log
+in local: New-Item -ItemType Directory -Force -Path config, logs (mkdir -p config logs)
+New-Item -ItemType File -Force -Path config/app.yml, config/db.yml, logs/app.log (touch config/app.yml config/db.yml logs/app.log)
+
+FROM node:18-alpine
+# Create user first
+RUN addgroup -g 1001 appgroup && adduser -u 1001 -G appgroup -s /bin/sh -D appuser
+WORKDIR /app
+# Copy with wildcards
+COPY config/*.yml /app/config/
+# Copy multiple sources
+COPY package.json server.js ./
+# Copy with ownership
+COPY --chown=appuser:appgroup logs/ /app/logs/
+# Verify ownership
+RUN ls -la /app/logs
+USER appuser
+CMD ["node", "server.js"]
+
+docker build -t node-app:copy .
+docker run --rm node-app:copy ls -la /app
+
+What This Does
+COPY supports wildcards, multiple sources, and --chown to set ownership. This avoids separate RUN chown commands, reducing layers.
+
+Expected Outcome
+Files are copied with correct ownership. The logs directory is owned by appuser:appgroup from the start.
+
+Pro Tips
+1 Use wildcards for flexible patterns: *.yml, *.json
+2 --chown avoids extra RUN chown commands (saves a layer)
+3 Paths with spaces need quotes: COPY "my file.txt" .
+4 COPY fails if source doesn't exist (unlike ADD)
+5 Always prefer COPY over ADD unless you need ADD's special features
+
+Step 6 Optimizing RUN commands
+Combine commands and clean up in the same layer to reduce image size.
+
+Commands to Run
+cat > Dockerfile.bad << 'EOF'
+FROM ubuntu:22.04
+RUN apt-get update
+RUN apt-get install -y curl
+RUN apt-get install -y wget
+RUN apt-get install -y vim
+
+cat > Dockerfile.good << 'EOF'
+FROM ubuntu:22.04
+RUN apt-get update && apt-get install -y \
+    curl \
+    wget \
+    vim \
+  && rm -rf /var/lib/apt/lists/*
+
+docker build -f Dockerfile.bad -t ubuntu:bad .
+docker build -f Dockerfile.good -t ubuntu:good .
+docker images | grep ubuntu
+
+What This Does
+Each RUN creates a layer. Combining commands reduces layers. Cleaning package manager cache in the same RUN prevents it from being in the final image.
+
+Expected Outcome
+The 'good' image is significantly smaller because cache is cleaned in the same layer where packages are installed.
+
+Pro Tips
+1 Combine related RUN commands with && and \
+2 Clean up in the same layer: rm -rf /var/lib/apt/lists/*
+3 For apk: apk add --no-cache (doesn't create cache)
+4 For yum: yum clean all
+5 Order commands by likelihood of change for better caching
+6 Use \ for line continuation to keep Dockerfile readable
+
+Step 7 Using ENTRYPOINT vs CMD
+Understand the difference and how to use them together.
+
+Commands to Run
+cat > Dockerfile.cmd << 'EOF'
+FROM alpine:3.19
+CMD ["echo", "Hello"]
+EOF
+
+cat > Dockerfile.entry << 'EOF'
+FROM alpine:3.19
+ENTRYPOINT ["echo", "Hello"]
+EOF
+
+cat > Dockerfile.both << 'EOF'
+FROM alpine:3.19
+ENTRYPOINT ["echo"]
+CMD ["Hello"]
+EOF
+
+docker build -f Dockerfile.cmd -t test:cmd .
+docker build -f Dockerfile.entry -t test:entry .
+docker build -f Dockerfile.both -t test:both .
+docker run test:cmd
+docker run test:cmd World
+docker run test:entry
+docker run test:entry World
+docker run test:both
+docker run test:both World
+
+What This Does
+CMD is easily overridden. ENTRYPOINT is the main command. When both are used, CMD provides default arguments to ENTRYPOINT.
+
+Expected Outcome
+CMD-only: 'World' replaces entire command. ENTRYPOINT-only: 'World' is added as argument. Both: 'World' replaces default 'Hello'.
+
+Pro Tips
+1 Use ENTRYPOINT for the main executable
+2 Use CMD for default arguments that users might override
+3 Common pattern: ENTRYPOINT ["app"], CMD ["--help"]
+4 Override ENTRYPOINT: docker run --entrypoint bash image
+5 Prefer exec form ["cmd", "arg"] over shell form cmd arg
