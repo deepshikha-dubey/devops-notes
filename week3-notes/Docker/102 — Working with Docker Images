@@ -1,0 +1,182 @@
+102 — Working with Docker Images
+
+Step 1 Search for images on Docker Hub
+Docker Hub is the default registry for Docker images. Let's search for popular images.
+
+Commands to Run
+docker search nginx
+docker search --filter stars=1000 nginx
+
+What This Does
+The `docker search` command queries Docker Hub for images. The filter option helps you find popular, well-maintained images with many stars.
+
+Expected Outcome
+You'll see a list of nginx-related images with columns for NAME, DESCRIPTION, STARS, OFFICIAL, and AUTOMATED.
+
+Pro Tips
+1 Look for OFFICIAL images (marked [OK]) - they're maintained by Docker or the software vendor
+2 High star count usually indicates a well-maintained, popular image
+3 Check the image description for specific use cases
+
+Step 2 Pull a specific image
+Download the official nginx image to your local machine.
+
+Commands to Run
+docker pull nginx
+
+What This Does
+This downloads the nginx image from Docker Hub. Without a tag, it defaults to 'latest'. The image is stored locally and can be used to create containers.
+
+Expected Outcome
+You'll see download progress bars for each layer. Output ends with something like 'Status: Downloaded newer image for nginx:latest'.
+
+Pro Tips
+1 Images are downloaded in layers - Docker reuses layers across images to save space
+2 The first pull takes time, but subsequent pulls reuse existing layers
+
+Step 3 Pull different versions of the same image using tags.
+
+Commands to Run
+docker pull nginx:1.25
+docker pull nginx:alpine
+docker images nginx
+
+What This Does
+Tags specify versions or variants. Format is `image:tag`. Alpine variants are minimal Linux distributions, resulting in smaller images.
+
+Expected Outcome
+You'll see three nginx images listed with different tags: latest, 1.25, and alpine. Notice the size differences.
+
+Pro Tips
+1 Alpine images are typically 5-10x smaller than standard images
+2 Use specific version tags (like 1.25) in production to ensure consistency
+3 Check Docker Hub for available tags and their documentation
+
+Step 4 View detailed information about an image including layers, environment variables, and metadata.
+
+Commands to Run
+docker inspect nginx:latest
+docker history nginx:latest
+
+What This Does
+`docker inspect` shows JSON metadata including config, layers, and environment. `docker history` displays the build commands that created each layer.
+
+Expected Outcome
+You'll see detailed JSON output from inspect, and a table of layers with their sizes from history.
+
+Pro Tips
+1 Use `docker inspect nginx:latest | grep -A 10 Env` to see just environment variables
+2 History shows how the image was built - useful for learning Dockerfile patterns
+3 Layers marked <missing> are from multi-stage builds or external registries
+
+Step 5 View all images stored on your machine with size information.
+
+Commands to Run
+docker images
+docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}"
+
+What This Does
+The first command shows all images. The second formats output to show only repository, tag, and size for clarity.
+
+Expected Outcome
+You'll see a table with all your images including nginx variants, ubuntu, hello-world, and possibly httpd from Lesson 101.
+
+Pro Tips
+1 Images are identified by REPOSITORY:TAG or IMAGE ID
+2 The same image can have multiple tags (aliases)
+3 Size shown is the compressed size; actual disk usage may differ due to shared layers
+
+Step 6 Explore how Docker images use layers for efficiency.
+
+Commands to Run
+docker pull python:3.11
+docker pull python:3.11-alpine
+docker images python
+
+What This Does
+Docker images are built in layers. Each instruction in a Dockerfile creates a layer. Layers are cached and reused across images.
+
+Expected Outcome
+Notice the size difference between python:3.11 (~900MB) and python:3.11-alpine (~50MB). Both work but alpine is minimal.
+
+Pro Tips
+1 Alpine images save disk space and reduce attack surface
+2 Standard images include more tools, useful for debugging
+3 Choose alpine for production, standard for development
+
+Step 7 Create your own tag (alias) for an image.
+
+Commands to Run
+docker tag nginx:latest my-nginx:v1
+docker images | grep nginx
+
+What This Does
+Tagging creates a new name pointing to the same image. Useful for versioning or pushing to private registries.
+
+Expected Outcome
+You'll see both 'nginx:latest' and 'my-nginx:v1' listed with the same IMAGE ID.
+
+Pro Tips
+1 Tags are just labels - multiple tags can point to the same image
+2 Use meaningful tag names for your custom images
+3 Format: `repository:tag` or `registry/repository:tag` for remote registries
+
+Step 8 Check how much disk space Docker images are using.
+
+Commands to Run
+docker system df
+docker system df -v
+
+What This Does
+This shows storage used by images, containers, and volumes. The -v flag provides detailed information per image.
+
+Expected Outcome
+You'll see a summary showing IMAGES, CONTAINERS, and VOLUMES with their sizes and reclaimable space.
+
+Pro Tips
+1 Shared layers mean total size is less than sum of all images
+2 Reclaimable space shows what can be freed by removing unused images
+3 Run this regularly to monitor Docker's disk usage
+
+Step 9 Clean up images you no longer need to free disk space.
+
+Commands to Run
+docker rmi python:3.11
+docker images
+docker image prune -a
+
+What This Does
+`docker rmi` removes a specific image. `docker image prune -a` removes all unused images (not referenced by any container).
+
+Expected Outcome
+The python:3.11 image is removed. Prune shows how much space was reclaimed.
+
+Pro Tips
+1 Can't remove images used by containers (even stopped ones)
+2 Remove containers first with `docker container prune`
+3 The -a flag is important - without it, only dangling images are removed
+
+Step 10 Apply what you've learned to work with a different image.
+
+Commands to Run
+docker search redis
+docker pull redis:7-alpine
+docker inspect redis:7-alpine | grep -A 5 ExposedPorts
+docker rmi redis:7-alpine
+
+What This Does
+This workflow demonstrates searching, pulling a specific tagged version, inspecting configuration, and cleaning up.
+
+Expected Outcome
+You successfully pull redis 7 alpine variant, see it exposes port 6379, then remove it.
+
+Pro Tips
+1 Always check the official image documentation on Docker Hub
+2 Use alpine variants when image size matters
+3 Inspect images to understand their configuration before running
+
+✓ Search and pull images from Docker Hub
+✓ Work with image tags and versions
+✓ Inspect image layers and configuration
+✓ Manage local images and disk space
+✓ Understand alpine vs standard image variants
