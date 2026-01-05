@@ -1,0 +1,193 @@
+101 — Your First Docker Container
+
+Step 1 Verify Docker installation
+Before we start, let's make sure Docker is properly installed and running on your system.
+
+Commands to Run
+docker --version
+docker info
+
+What This Does
+The first command checks your Docker version. The `docker info` command displays system-wide information including the number of containers and images.
+
+Expected Outcome
+You should see:
+- Docker version (e.g., Docker version 24.x.x)
+- System information showing Docker is running
+
+Pro Tips
+1 If Docker isn't running, start Docker Desktop (Mac/Windows) or the Docker daemon (Linux)
+2 On Linux, you might need to use `sudo` before docker commands
+
+Step 2 Run your first container
+Let's run the classic "Hello World" container to verify everything works.
+
+Commands to Run
+docker run hello-world
+
+What This Does
+This command does several things: it checks if the `hello-world` image exists locally, downloads it if not (from Docker Hub), creates a container from that image, runs it, and displays output.
+
+Expected Outcome
+You should see a message starting with "Hello from Docker!" explaining what just happened. The container runs, prints the message, and exits.
+
+Pro Tips
+1 This is a one-time container - it runs and stops automatically
+2 The image is now cached locally for future use
+
+Step 3 Understanding what just happened
+Let's see the containers and images on your system.
+
+Commands to Run
+docker images
+docker ps -a
+
+What This Does
+`docker images` lists all images (templates) on your machine. `docker ps -a` shows all containers (instances), including stopped ones. Without `-a`, it only shows running containers.
+
+Expected Outcome
+You should see:
+- The `hello-world` image listed
+- One exited container created from that image
+
+Pro Tips
+1 Images are like classes, containers are like instances
+2 Think of images as the recipe, containers as the meal
+3 Use `docker ps` (without -a) to see only running containers
+
+Step 4 Run an interactive container
+Let's run a container that stays alive and lets you interact with it.
+
+Commands to Run
+docker run -it ubuntu bash
+
+What This Does
+The `-i` flag keeps the container's input stream open (interactive). The `-t` flag allocates a pseudo-terminal. `ubuntu` is the image name, and `bash` is the command to run inside the container.
+
+Expected Outcome
+Your terminal prompt should change to something like `root@abc123:/#` - you're now inside the Ubuntu container!
+
+Pro Tips
+1 You're now inside a minimal Ubuntu Linux environment
+2 Try running `ls`, `pwd`, or `cat /etc/os-release` to explore
+3 Type `exit` to leave the container and return to your host machine
+
+Step 5 Explore inside the container
+While inside the Ubuntu container, let's explore and make some changes.
+
+Commands to Run
+cat /etc/os-release
+echo "Hello from inside Docker!" > test.txt
+cat test.txt
+exit
+
+What This Does
+These commands run inside the container, not on your host machine. The file you created exists only in this container's filesystem. When you `exit`, you leave the container.
+
+Expected Outcome
+You should see Ubuntu version info, create a file, read it, then return to your normal terminal prompt.
+
+Pro Tips
+1 Notice how the prompt changes back when you exit
+2 The container still exists (stopped state) with your changes
+3 We'll see how to restart it in the next step
+
+Step 6 View all containers
+Let's see all the containers we've created so far.
+
+Commands to Run
+docker ps -a
+
+What This Does
+This shows all containers regardless of state. You should see the `hello-world` container (Exited) and the Ubuntu container you just exited.
+
+Expected Outcome
+You'll see a table with columns: CONTAINER ID, IMAGE, COMMAND, CREATED, STATUS, NAMES. Both containers should show STATUS as "Exited".
+
+Pro Tips
+1 Each container gets a unique ID and a random name
+2 The NAMES column shows randomly generated names like "friendly_einstein"
+3 You can reference containers by ID or name in other commands
+
+Step 7 Run a web server container
+Let's run something more practical - a simple web server that stays running.
+
+Commands to Run
+docker run -d -p 8080:80 --name my-nginx nginx
+
+What This Does
+The `-d` flag runs in detached mode (background). `-p 8080:80` maps port 8080 on your host to port 80 in the container. `--name` gives it a friendly name instead of a random one.
+
+Expected Outcome
+You should see a long container ID printed, and your terminal prompt returns immediately. The container runs in the background.
+
+Pro Tips
+1 Open http://localhost:8080 in your browser to see nginx running!
+2 The `-d` flag is crucial for long-running services
+3 Port mapping format is always `host:container`
+
+Step 8 View running containers and logs
+Let's check our running container and see what it's doing.
+
+Commands to Run
+docker ps
+docker logs my-nginx
+
+What This Does
+`docker ps` (without -a) shows only running containers. `docker logs` displays what the container has output to stdout/stderr.
+
+Expected Outcome
+You should see `my-nginx` listed as running (UP status) and nginx access logs when you view the logs.
+
+Pro Tips
+1 Refresh http://localhost:8080 in your browser and run `docker logs my-nginx` again to see new log entries
+2 Use `docker logs -f my-nginx` to follow logs in real-time (like `tail -f`)
+3 Press Ctrl+C to stop following logs
+
+Step 9 Stop and remove containers
+Learn to clean up containers when you're done with them.
+
+Commands to Run
+docker stop my-nginx
+docker ps -a
+docker rm my-nginx
+docker ps -a
+
+What This Does
+`docker stop` gracefully stops a running container. `docker rm` removes a stopped container completely. Notice how the container disappears from the list after removal.
+
+Expected Outcome
+After `stop`, the container status changes to "Exited". After `rm`, it's completely gone from `docker ps -a`.
+
+Pro Tips
+1 You can combine: `docker rm -f my-nginx` to force-remove a running container
+2 Use `docker container prune` to remove all stopped containers at once
+3 Removing a container doesn't remove the image - it's still cached
+
+Step 10 Practice: Run and interact with a container
+Reinforce what you've learned by running another container on your own.
+
+Commands to Run
+docker run -d -p 8081:80 --name my-apache httpd
+docker ps
+docker logs my-apache
+docker stop my-apache
+docker rm my-apache
+
+What This Does
+This follows the full container lifecycle: run in background, check it's running, view logs, stop it, and clean up. The `httpd` image is Apache web server.
+
+Expected Outcome
+You should be able to visit http://localhost:8081 and see Apache's default page. Then successfully stop and remove the container.
+
+Pro Tips
+1 Try different port numbers to avoid conflicts
+2 Practice naming containers with `--name` for easier management
+3 Use `docker images` to see all the images you've downloaded
+
+✓ Run Docker containers from images
+✓ Understand the difference between images and containers
+✓ Interact with containers using `-it` flags
+✓ Run containers in the background with `-d`
+✓ Map ports with `-p` to access services
+✓ View logs and manage container lifecycle
