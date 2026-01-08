@@ -499,3 +499,65 @@ Pro Tips
 3 Speeds up builds by skipping unnecessary stages
 4 Great for CI/CD: build test stage to run tests
 5 Shared early stages benefit from layer caching
+
+Step 13 Production-ready image checklist
+Apply all best practices to create a production-ready image.
+
+Commands to Run
+cd .. && mkdir production-ready && cd production-ready
+
+cat > app.js << 'EOF'
+const express = require('express');
+const app = express();
+app.get('/health', (req, res) => res.json({ status: 'ok' }));
+app.listen(3000, '0.0.0.0', () => console.log('Ready'));
+process.on('SIGTERM', () => { console.log('Shutdown'); process.exit(0); });
+EOF
+
+cat > package.json << 'EOF'
+{ "dependencies": { "express": "4.18.2" } }
+EOF
+
+cat > Dockerfile << 'EOF'
+# syntax=docker/dockerfile:1
+# Use specific versions
+FROM node:18.20-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN --mount=type=cache,target=/root/.npm npm ci
+COPY . .
+
+# Production stage
+FROM node:18.20-alpine
+WORKDIR /app
+
+# Install security updates
+RUN apk upgrade --no-cache && apk add --no-cache curl
+
+# Create non-root user
+RUN addgroup -g 1001 nodejs && adduser -u 1001 -G nodejs -s /bin/sh -D nodejs
+
+COPY package*.json ./
+RUN npm ci --only=production && npm cache clean --force
+
+COPY --from=builder --chown=nodejs:nodejs /app/app.js .
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:3000/health || exit 1
+
+USER nodejs
+EXPOSE 3000
+CMD ["node", "app.js"]
+EOF
+
+DOCKER_BUILDKIT=1 docker build -t production-app .
+docker run -d -p 3000:3000 --name prod-test production-app
+sleep 10 && docker inspect prod-test --format='{{.State.Health.Status}}'
+docker stop prod-test && docker rm prod-test
+
+What This Does
+A production-ready image: uses specific versions, runs as non-root, has health checks, handles signals, optimizes layers, and includes security updates.
+
+Expected Outcome
+Image builds efficiently, runs securely as non-root user, reports healthy status, and shuts down gracefully.
