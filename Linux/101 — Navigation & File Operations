@@ -1,0 +1,18 @@
+101 — Navigation & File Operations
+
+Step 1 Check your current location
+Learn to see where you are in the filesystem using pwd (print working directory).
+
+Commands to Run
+pwd
+
+What This Does
+pwd shows your current location in the filesystem. When you open a terminal, you typically start in your home directory (/home/username on Linux or /Users/username on macOS).
+
+Expected Outcome
+You'll see your current directory path, like /home/yourusername or /Users/yourusername
+
+Pro Tips
+1 pwd stands for 'print working directory'
+2 Think of it as 'where am I right now?'
+3 Use pwd whenever you're unsure of your location
