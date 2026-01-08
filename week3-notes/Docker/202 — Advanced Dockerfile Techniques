@@ -286,3 +286,216 @@ Pro Tips
 3 Common pattern: ENTRYPOINT ["app"], CMD ["--help"]
 4 Override ENTRYPOINT: docker run --entrypoint bash image
 5 Prefer exec form ["cmd", "arg"] over shell form cmd arg
+
+Step 8 Handling signals properly
+Ensure your application handles shutdown signals gracefully.
+
+Commands to Run
+cat > app.sh << 'EOF'
+#!/bin/sh
+trap "echo 'Shutting down...'; exit 0" SIGTERM SIGINT
+echo "App started"
+while true; do
+  sleep 1
+done
+EOF
+
+cat > Dockerfile << 'EOF'
+FROM alpine:3.19
+WORKDIR /app
+COPY app.sh .
+RUN chmod +x app.sh
+# Use exec form to ensure proper signal handling
+CMD ["./app.sh"]
+EOF
+
+docker build -t signal-test .
+docker run --name signal-demo signal-test &
+sleep 3 && docker stop signal-demo
+docker logs signal-demo
+
+What This Does
+Using exec form of CMD ensures signals reach your application. The trap command in shell scripts handles SIGTERM for graceful shutdown.
+
+Expected Outcome
+When stopped, the container logs 'Shutting down...' before exiting, showing it received and handled the signal properly.
+
+Pro Tips
+1 Always use exec form: CMD ["app"] not CMD app
+2 Shell form starts /bin/sh which doesn't forward signals
+3 In Node.js, handle process.on('SIGTERM')
+4 In Go, use signal.Notify()
+5 Docker sends SIGTERM, waits 10s, then SIGKILL
+6 Graceful shutdown prevents data loss
+
+Step 9 Build-time secrets handling
+Safely use secrets during build without leaving them in the image.
+
+Commands to Run
+cd .. && mkdir secrets-demo && cd secrets-demo
+echo 'SECRET_TOKEN=my-secret-token' > secret.txt
+
+cat > Dockerfile << 'EOF'
+# syntax=docker/dockerfile:1
+FROM alpine:3.19
+WORKDIR /app
+# BAD: Secret ends up in layer
+# COPY secret.txt .
+# RUN cat secret.txt && rm secret.txt
+# GOOD: Use secret mount
+RUN --mount=type=secret,id=mysecret \
+    cat /run/secrets/mysecret > config.txt
+CMD ["cat", "config.txt"]
+EOF
+
+DOCKER_BUILDKIT=1 docker build --secret id=mysecret,src=secret.txt -t secret-test .
+docker history secret-test
+
+What This Does
+Build secrets are mounted during build but never stored in layers. This prevents secrets from appearing in the image history.
+
+Expected Outcome
+The secret is used during build but 'docker history' doesn't show it. The secret file isn't in the final image layers.
+
+Pro Tips
+1 Requires BuildKit (DOCKER_BUILDKIT=1)
+2 Secrets are mounted at /run/secrets/<id>
+3 Never COPY secrets and delete them - they stay in layers!
+4 Use secret mounts for API tokens, passwords, SSH keys
+5 Combine with ARG for non-sensitive build parameters
+
+Step 10 Cache mounts for faster builds
+Use cache mounts to persist package manager caches across builds.
+
+Commands to Run
+cd .. && mkdir cache-demo && cd cache-demo
+
+cat > Dockerfile << 'EOF'
+# syntax=docker/dockerfile:1
+FROM node:18-alpine
+WORKDIR /app
+COPY package*.json ./
+
+# Cache npm's download cache across builds
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --only=production
+
+COPY . .
+CMD ["node", "index.js"]
+EOF
+Copy
+cat > package.json << 'EOF'
+{
+  "dependencies": {
+    "express": "^4.18.0",
+    "lodash": "^4.17.21",
+    "axios": "^1.6.0"
+  }
+}
+EOF
+
+echo 'console.log("Ready");' > index.js
+DOCKER_BUILDKIT=1 docker build -t cache-test:v1 .  (in local: $env DOCKER_BUILDKIT=1)
+echo 'console.log("Updated");' > index.js
+DOCKER_BUILDKIT=1 docker build -t cache-test:v2 .
+
+What This Does
+Cache mounts persist directories across builds. npm packages are cached, so the second build doesn't re-download packages.
+
+Expected Outcome
+First build downloads packages normally. Second build is much faster as packages come from cache.
+
+Pro Tips
+1 Common targets: /root/.npm (npm), /root/.cache/pip (Python), /go/pkg (Go)
+2 Cache mounts speed up development iterations significantly
+3 Caches are local to the machine running the build
+4 Use with CI/CD for faster pipeline builds
+5 Combine with layer caching for maximum efficiency
+
+Step 11 Multi-platform builds
+Build images that work on different CPU architectures.
+
+Commands to Run
+cd .. && mkdir platform-demo && cd platform-demo
+
+cat > Dockerfile << 'EOF'
+FROM --platform=$BUILDPLATFORM golang:1.21-alpine AS builder
+ARG TARGETPLATFORM
+ARG BUILDPLATFORM
+RUN echo "Building on $BUILDPLATFORM for $TARGETPLATFORM"
+WORKDIR /app
+COPY app.go .
+RUN go build -o myapp app.go
+
+FROM alpine:3.19
+COPY --from=builder /app/myapp .
+CMD ["./myapp"]
+EOF
+
+echo 'package main
+import "fmt"
+func main() { fmt.Println("Hello!") }' > app.go
+
+docker buildx ls
+docker buildx build --platform linux/amd64,linux/arm64 -t multiarch:latest .
+
+What This Does
+BuildX builds for multiple architectures in one command. BUILDPLATFORM is where you're building, TARGETPLATFORM is where the image will run.
+
+Expected Outcome
+Docker builds images for both AMD64 (Intel/AMD) and ARM64 (Apple Silicon, ARM servers). The same Dockerfile works for both.
+
+Pro Tips
+1 Essential for supporting Mac M1/M2 and ARM servers
+2 Use --platform flag to specify target architectures
+3 BuildX is included in Docker Desktop by default
+4 To push: add --push flag
+5 Docker Hub stores multi-arch images as manifests
+
+
+12.Step  Debugging builds with target stages (Build only specific stages for debugging and testing.)
+ Target stages let you build and test one step of your Dockerfile at a time, instead of the whole thing.
+
+Commands to Run
+cd .. && mkdir debug-demo && cd debug-demo
+
+cat > Dockerfile << 'EOF'
+FROM node:18-alpine AS base
+WORKDIR /app
+COPY package*.json ./
+
+FROM base AS development
+RUN npm install
+COPY . .
+CMD ["npm", "run", "dev"]
+
+FROM base AS production
+RUN npm ci --only=production
+COPY . .
+CMD ["node", "server.js"]
+EOF
+
+cat > package.json << 'EOF'
+{
+  "scripts": { "dev": "echo 'Dev mode'" },
+  "dependencies": { "express": "^4.18.0" }
+}
+EOF
+
+touch server.js
+docker build --target development -t app:dev .
+docker build --target production -t app:prod .
+docker images | grep app
+
+What This Does
+Name stages with AS and use --target to build specific stages. Build stops at the target stage, ignoring later stages.
+
+Expected Outcome
+Two images are created: dev includes devDependencies, prod doesn't. Both share the base stage layers.
+
+Pro Tips
+1 Use for development vs production builds
+2 Common stages: deps, build, test, production
+3 Speeds up builds by skipping unnecessary stages
+4 Great for CI/CD: build test stage to run tests
+5 Shared early stages benefit from layer caching
