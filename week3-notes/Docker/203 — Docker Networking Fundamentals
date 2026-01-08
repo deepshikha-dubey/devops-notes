@@ -1,0 +1,20 @@
+203 — Docker Networking Fundamentals
+
+Step 1 Understanding Docker network drivers
+Learn about the different network types Docker provides.
+
+Commands to Run
+docker network ls
+docker network inspect bridge
+
+What This Does
+Docker creates three networks by default: bridge (default for containers), host (shares host network), and none (no networking). Each serves different use cases.
+
+Expected Outcome
+You'll see the default networks. Inspect shows bridge network details including subnet, gateway, and connected containers.
+
+Pro Tips
+1 bridge: Default, provides isolation and internal network
+2 host: Container uses host's network directly (no isolation)
+3 none: No networking, complete isolation
+4 Custom networks provide better DNS and isolation than default bridge
