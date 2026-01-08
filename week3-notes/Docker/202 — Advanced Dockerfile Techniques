@@ -561,3 +561,12 @@ A production-ready image: uses specific versions, runs as non-root, has health c
 
 Expected Outcome
 Image builds efficiently, runs securely as non-root user, reports healthy status, and shuts down gracefully.
+
+
+✓ Multi-stage builds for minimal image sizes
+✓ Health checks for container monitoring
+✓ Advanced COPY and RUN optimizations
+✓ Proper signal handling for graceful shutdowns
+✓ Build-time secrets and cache mounts
+✓ Multi-platform builds
+✓ Production-ready image patterns
