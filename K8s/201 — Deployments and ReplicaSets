@@ -1,0 +1,247 @@
+201 — Deployments and ReplicaSets
+
+Step 1 Create your first Deployment
+Deploy a replicated application using a Deployment resource.
+(A Deployment in Kubernetes (k8s) is like a manager that makes sure your app is always running the way you want.)
+
+Commands to Run
+kubectl create deployment nginx-deploy --image=nginx:alpine --replicas=3
+kubectl get deployments
+kubectl get replicasets
+kubectl get pods
+
+What This Does
+Deployments manage ReplicaSets, which manage Pods. This creates 3 identical nginx pod replicas for high availability.
+
+Expected Outcome
+1 Deployment created, 1 ReplicaSet created, 3 Pods running. All with auto-generated names.
+
+Pro Tips
+1 Deployments > ReplicaSets > Pods (ownership hierarchy)
+2 Never manage Pods directly in production - use Deployments
+3 ReplicaSets ensure desired number of pods are always running
+4 If a pod dies, ReplicaSet creates a replacement
+5 Deployment names must be unique per namespace
+
+Step 2 Understand the resource hierarchy
+Examine how Deployments, ReplicaSets, and Pods are connected.
+
+Commands to Run
+kubectl describe deployment nginx-deploy
+kubectl get replicaset -o wide
+kubectl get pods --show-labels
+What This Does
+Deployments use label selectors to manage ReplicaSets, which use label selectors to manage Pods.
+
+Expected Outcome
+Deployment shows replica count and selector. ReplicaSet has hash suffix in name. Pods have labels matching selectors.
+
+Pro Tips
+1 Label selector links resources in the hierarchy
+2 ReplicaSet name includes pod-template-hash
+3 Never delete ReplicaSets managed by Deployments
+4 Deployments can manage multiple ReplicaSets (during updates)
+5 Each pod gets unique name with random suffix
+
+Step 3 Scale the Deployment
+Increase and decrease the number of pod replicas.
+
+Commands to Run
+kubectl scale deployment nginx-deploy --replicas=5
+kubectl get pods -w
+
+What This Does
+Scaling changes the desired replica count. Kubernetes creates or deletes pods to match. Watch shows real-time updates.
+
+Expected Outcome
+2 new pods created, bringing total to 5. Watch shows ContainerCreating → Running status changes.
+
+Pro Tips
+1 Scaling is instant - just updates desired state
+2 Kubernetes handles pod creation/deletion
+3 Scale up for more capacity, scale down to save resources
+4 In production, use HorizontalPodAutoscaler for automatic scaling
+5 Press Ctrl+C to stop watching
+
+Step 4 Create Deployment with YAML
+Use declarative YAML for complete control over Deployment configuration.
+
+Commands to Run
+cat > deployment-web.yaml << 'EOF'
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-app
+  labels:
+    app: web
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+        version: v1
+    spec:
+      containers:
+      - name: webapp
+        image: httpd:alpine
+        ports:
+        - containerPort: 80
+EOF
+
+kubectl apply -f deployment-web.yaml
+kubectl get deployments
+kubectl get pods -l app=web
+
+What This Does
+Deployment YAML includes selector (which pods to manage) and template (how to create pods). Labels must match.
+
+Expected Outcome
+web-app Deployment created with 3 pods. Pods have labels app=web and version=v1.
+
+Pro Tips
+1 spec.selector must match template.metadata.labels
+2 template is the pod specification
+3 Labels are crucial - they define relationships
+4 Indentation matters in YAML (use 2 spaces)
+5 Version control your Deployment YAMLs
+
+Step 5 Perform a rolling update
+Update container image with zero downtime.
+
+Commands to Run
+kubectl set image deployment/web-app webapp=httpd:2.4-alpine
+kubectl rollout status deployment/web-app
+kubectl get replicasets
+
+What This Does
+Rolling update creates new ReplicaSet, gradually scales it up while scaling old ReplicaSet down. Zero downtime!
+
+Expected Outcome
+Update rolls out pod by pod. Status shows progress. Two ReplicaSets exist - new one with 3 pods, old one with 0.
+
+Pro Tips
+1 Rolling updates happen automatically
+2 Old ReplicaSet kept for rollback capability
+3 maxSurge and maxUnavailable control update speed
+4 Default strategy: RollingUpdate (also supports Recreate)
+5 Watch rollout: kubectl rollout status deployment/[name]
+6 Pause rollout: kubectl rollout pause deployment/[name]
+
+Step 6 View rollout history
+Track Deployment revision history for auditing and rollback.
+
+Commands to Run
+kubectl rollout history deployment/web-app
+kubectl rollout history deployment/web-app --revision=2
+
+What This Does
+Kubernetes tracks deployment revisions. Each change creates a new revision. View history to see what changed.
+
+Expected Outcome
+Shows revision numbers and change causes. --revision shows details of specific revision.
+
+Pro Tips
+1 Revisions are sequential numbers
+2 Use --record flag when applying changes to save command (deprecated)
+3 Better: use annotations to document changes
+4 Revision history limited by revisionHistoryLimit (default: 10)
+5 Old ReplicaSets are kept for rollback
+
+Step 7 Rollback a Deployment
+Revert to a previous version when something goes wrong.
+
+Commands to Run
+kubectl rollout undo deployment/web-app
+kubectl rollout status deployment/web-app
+kubectl get replicasets
+
+What This Does
+Undo reverts to the previous revision. Kubernetes scales old ReplicaSet back up and new one down.
+
+Expected Outcome
+Deployment rolls back to previous version. Original ReplicaSet scales back to 3 pods.
+
+Pro Tips
+1 Undo without arguments reverts to previous revision
+2 Undo to specific: kubectl rollout undo deployment/[name] --to-revision=N
+3 Rollback is also a rolling update (zero downtime)
+4 Test updates in staging before production
+5 Consider canary deployments for safer updates
+
+Step 8 Configure update strategy
+Control how rolling updates behave.
+
+Commands to Run
+kubectl patch deployment web-app -p '{"spec":{"strategy":{"rollingUpdate":{"maxSurge":2,"maxUnavailable":1}}}}' 
+kubectl describe deployment web-app
+What This Does
+maxSurge controls how many extra pods can exist during update. maxUnavailable controls how many can be down.
+
+Expected Outcome
+Strategy updated. Description shows RollingUpdateStrategy with new maxSurge and maxUnavailable values.
+
+Pro Tips
+1 maxSurge: extra pods above desired count (number or %)
+2 maxUnavailable: pods that can be down during update (number or %)
+3 Higher maxSurge = faster updates but more resources
+4 maxUnavailable=0 ensures no downtime
+5 Tune based on application needs and resources
+
+Step 9 Test self-healing
+See how Deployments automatically replace failed pods.
+
+Commands to Run
+kubectl get pods -l app=web
+kubectl delete pod -l app=web --grace-period=0 --force
+kubectl get pods -l app=web -w
+
+What This Does
+Delete all pods. ReplicaSet immediately creates replacements to maintain desired count. This is self-healing!
+
+Expected Outcome
+Pods are deleted, but new ones are created immediately. Total count stays at 3.
+
+Pro Tips
+1 ReplicaSet constantly reconciles actual vs desired state
+2 Self-healing happens automatically, no manual intervention
+3 Works for crashes, deletions, and node failures
+4 Critical for high availability
+5 Pods get new names and IPs after recreation
+
+Step 10 Clean up Deployments
+Delete Deployments and understand cascading deletion.
+
+Commands to Run
+kubectl delete deployment nginx-deploy
+kubectl get replicasets
+kubectl get pods
+kubectl delete deployment web-app
+kubectl get all
+What This Does
+Deleting Deployment cascades to ReplicaSets and Pods. Everything managed by the Deployment is cleaned up.
+
+Expected Outcome
+nginx-deploy deleted along with its ReplicaSet and Pods. Same for web-app. 'get all' shows clean namespace.
+
+Pro Tips
+1 Cascade deletion is default behavior
+2 Use --cascade=orphan to keep pods after deleting Deployment
+3 kubectl delete deployment --all deletes all deployments
+4 In production, use kubectl delete -f [file] for tracked resources
+5 Consider using labels: kubectl delete deployment -l app=web
+
+
+🎉
+Lesson Complete!
+Great job! You've mastered Kubernetes namespaces:
+
+✓ Understand namespace purpose and default namespaces
+✓ Create and manage custom namespaces
+✓ Deploy resources to specific namespaces
+✓ Configure default namespace for context
+✓ Move resources between namespaces
+✓ Delete namespaces safely
