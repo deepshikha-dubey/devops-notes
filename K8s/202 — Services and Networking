@@ -1,0 +1,221 @@
+202 — Services and Networking
+
+Step 1 Create a Deployment to expose
+Deploy an application that we'll expose via Services.
+
+Commands to Run
+kubectl create deployment web --image=nginx:alpine --replicas=3
+kubectl get pods -o wide
+
+What This Does
+Create a 3-replica nginx Deployment. Note the pod IPs - they're ephemeral and change when pods restart.
+
+Expected Outcome
+3 nginx pods running, each with its own internal IP address.
+
+Pro Tips
+1 Pod IPs are not stable - they change on restart
+2 Services provide stable endpoints
+3 Don't hardcode pod IPs in configurations
+
+Step 2 Create a ClusterIP Service
+Expose the Deployment internally within the cluster.
+
+Commands to Run
+kubectl expose deployment web --port=80 --target-port=80 --name=web-service
+kubectl get service web-service
+kubectl describe service web-service
+
+What This Does
+ClusterIP (default) creates a stable internal IP and DNS name. Traffic to this IP is load-balanced across pods matching the selector.
+
+Expected Outcome
+Service created with CLUSTER-IP. Endpoints show 3 pod IPs. Only accessible within cluster.
+
+Pro Tips
+1 ClusterIP is default service type (internal only)
+2 --port is the service port, --target-port is container port
+3 Service gets a stable IP that doesn't change
+4 DNS name: [service-name].[namespace].svc.cluster.local
+5 Within same namespace, just use [service-name]
+
+Step 3 Test service discovery with DNS
+Use Kubernetes DNS to access services by name.
+
+Commands to Run
+kubectl run test-pod --image=curlimages/curl:latest --rm -it --restart=Never -- sh
+curl http://web-service
+curl http://web-service.default.svc.cluster.local
+nslookup web-service
+exit
+
+What This Does
+Services are automatically registered in DNS. Pods can reach services using service names without knowing IPs.
+
+Expected Outcome
+curl commands return nginx welcome page. nslookup resolves service name to ClusterIP.
+
+Pro Tips
+1 Short name works in same namespace: web-service
+2 Full FQDN: web-service.default.svc.cluster.local
+3 DNS is powered by CoreDNS (or kube-dns)
+4 Service discovery eliminates hardcoded IPs
+5 Each request load-balanced across all pod endpoints
+
+Step 4 View service endpoints
+Understand how Services track pod IPs.
+
+Commands to Run
+kubectl get endpoints web-service
+kubectl describe endpoints web-service
+What This Does
+Endpoints object lists pod IPs that Service routes traffic to. Automatically updated as pods come and go.
+
+Expected Outcome
+Shows 3 IP:port combinations matching the pod IPs from earlier.
+
+Pro Tips
+1 Endpoints are automatically managed
+2 One endpoint per matching pod
+3 If pods aren't ready, they're removed from endpoints
+4 Empty endpoints means no matching pods
+5 Check endpoints when service doesn't work
+
+Step 5 Create a NodePort Service
+Expose the service externally on each node's IP.
+
+Commands to Run
+kubectl expose deployment web --type=NodePort --port=80 --name=web-nodeport
+kubectl get service web-nodeport
+minikube service web-nodeport --url
+
+What This Does
+NodePort exposes service on a static port (30000-32767) on each node. Access via [NodeIP]:[NodePort].
+
+Expected Outcome
+Service created with NodePort (e.g., 31234). Minikube command shows accessible URL.
+
+Pro Tips
+1 NodePort range: 30000-32767 by default
+2 Use for testing, not production (prefer LoadBalancer)
+3 Accessible from outside cluster
+4 On cloud providers, firewall rules may block NodePort
+5 Each node proxies to pods on any node
+
+Step 6 Create Service with YAML
+Define Services declaratively for better control.
+
+Commands to Run
+cat > service-web.yaml << 'EOF'
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-lb
+spec:
+  type: LoadBalancer
+  selector:
+    app: web
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+EOF
+
+kubectl apply -f service-web.yaml
+kubectl get service web-lb
+
+What This Does
+LoadBalancer type requests external load balancer from cloud provider. Selector determines which pods receive traffic.
+
+Expected Outcome
+Service created. EXTERNAL-IP shows <pending> on minikube (works on cloud providers).
+
+Pro Tips
+1 LoadBalancer only works on cloud providers (AWS, GCP, Azure)
+2 On minikube, use 'minikube tunnel' to simulate LoadBalancer
+3 selector matches pod labels
+4 Multiple ports can be defined
+5 LoadBalancer creates NodePort and ClusterIP automatically
+
+Step 7 Use session affinity
+Configure sticky sessions to route users to same pod.
+
+Commands to Run
+kubectl patch service web-service -p '{"spec":{"sessionAffinity":"ClientIP"}}'
+kubectl describe service web-service
+
+What This Does
+Session affinity ensures requests from same client IP go to same pod. Useful for stateful applications.
+
+Expected Outcome
+Service updated. Description shows 'Session Affinity: ClientIP'.
+
+Pro Tips
+1 Default is None (round-robin load balancing)
+2 ClientIP creates sticky sessions based on client IP
+3 Timeout configurable with sessionAffinityConfig
+4 Use for applications that need session persistence
+5 Better solution: use StatefulSets or external session store
+
+Step 8 Create a headless Service
+Enable direct pod-to-pod communication without load balancing.
+
+Commands to Run
+cat > service-headless.yaml << 'EOF'
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-headless
+spec:
+  clusterIP: None
+  selector:
+    app: web
+  ports:
+  - port: 80
+EOF
+
+kubectl apply -f service-headless.yaml
+
+kubectl run test --image=curlimages/curl:latest --rm -it --restart=Never -- sh
+nslookup web-headless
+exit
+
+What This Does
+Headless services (clusterIP: None) return pod IPs directly instead of service IP. Enables client-side load balancing.
+
+Expected Outcome
+Service created with ClusterIP: None. nslookup returns all 3 pod IPs.
+
+Pro Tips
+1 Used for StatefulSets and service discovery
+2 No load balancing - clients get all pod IPs
+3 Each pod gets DNS record: [pod-name].[service-name]
+4 Useful for databases and clustered applications
+5 Clients implement their own load balancing logic
+
+Step 9 Test service load balancing
+Verify traffic is distributed across all pods.
+
+Commands to Run
+kubectl run load-test --image=curlimages/curl:latest --rm -it --restart=Never -- sh
+for i in $(seq 1 10); do curl -s http://web-service | grep -o 'Welcome to nginx'; done
+exit
+What This Does
+Make multiple requests to see service distributing traffic. Each request may hit a different pod.
+
+Expected Outcome
+10 requests all succeed, showing service is load balancing across the 3 pods.
+
+Pro Tips
+1 Services use iptables or IPVS for load balancing
+2 Default algorithm is round-robin
+3 Add pod name to response to see which pod handled request
+4 Service load balancing is layer 4 (TCP/UDP)
+5 For layer 7, use Ingress
+
+
+✓ Understand ClusterIP, NodePort, and LoadBalancer types
+✓ Expose applications with stable endpoints
+✓ Use DNS for service discovery
+✓ Configure service selectors and endpoints
+✓ Create headless services for advanced patterns
