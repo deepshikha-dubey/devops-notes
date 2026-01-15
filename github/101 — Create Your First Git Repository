@@ -1,0 +1,153 @@
+101 — Create Your First Git Repository
+
+Step 1 Create a workspace directory
+Start by creating a clean directory for this lesson. This keeps your practice organized and separate from other projects.
+
+Commands to Run
+mkdir -p ~/git-practice/lesson-101
+cd ~/git-practice/lesson-101
+
+What This Does
+The `mkdir -p` command creates a directory and any necessary parent directories. The `cd` command changes your current directory to the newly created folder.
+
+Expected Outcome
+You should now be in the `git-practice/lesson-101` directory. You can verify this by running `pwd` (print working directory).
+
+Pro Tips
+1 Use `pwd` to confirm you're in the right directory
+2 The `-p` flag prevents errors if the parent directory already exists
+
+Step 2 Verify Git installation
+Before we start, let's make sure Git is properly installed and configured on your system.
+
+Commands to Run
+git --version
+git config --global user.name
+git config --global user.email
+
+What This Does
+The first command checks your Git version. The next two commands display your Git identity, which will be attached to all your commits.
+
+Expected Outcome
+You should see:
+- A version number (e.g., git version 2.x.x)
+- Your name
+- Your email address
+
+Pro Tips
+1 If your name or email is not set, configure them with:
+2 git config --global user.name "Your Name"
+3 git config --global user.email "you@example.com"
+
+Step 3 Initialize a Git repository
+Transform your regular directory into a Git repository. This creates a hidden `.git` folder that tracks all changes.
+
+Commands to Run
+git init
+
+What This Does
+The `git init` command initializes a new Git repository in the current directory. It creates a `.git` subdirectory containing all necessary Git metadata and object database.
+
+Expected Outcome
+You should see: "Initialized empty Git repository in /path/to/git-practice/lesson-101/.git/"
+
+Pro Tips
+1 You can view the .git directory with `ls -la`
+2 Never manually edit files inside .git - use Git commands instead
+
+Step 4 Check repository status
+Learn to check the current state of your repository. This is one of the most frequently used Git commands.
+
+Commands to Run
+git status
+
+What This Does
+`git status` shows which files are tracked, modified, or ready to be committed. It's your window into what Git sees.
+
+Expected Outcome
+You should see "On branch main" (or master) and "No commits yet" with "nothing to commit".
+
+Pro Tips
+1 Run `git status` frequently - it's safe and informative
+2 This command never changes anything, just reports
+
+Step 5 Create and stage your first file
+Create a README file and prepare it for your first commit by adding it to the staging area.
+
+Commands to Run
+echo "# My First Git Repository" > README.md
+git status
+git add README.md
+git status
+
+What This Does
+The staging area (or index) is like a preparation area for commits. `git add` moves changes from your working directory to the staging area. Notice how `git status` output changes after adding the file.
+
+Expected Outcome
+After `git add`, you should see "Changes to be committed:" with "new file: README.md" listed in green.
+
+Pro Tips
+1 You can add multiple files at once with `git add file1 file2`
+2 Use `git add .` to add all changes in the current directory (use carefully!)
+
+Step 6 Make your first commit
+Create a permanent snapshot of your staged changes. This is the heart of version control.
+
+Commands to Run
+git commit -m "Initial commit: Add README"
+
+What This Does
+A commit is a snapshot of your project at a specific point in time. The `-m` flag lets you add a commit message inline. Good commit messages describe *why* you made the change, not just *what* changed.
+
+Expected Outcome
+You should see output like "[main (root-commit) abc1234] Initial commit: Add README" followed by file statistics.
+
+Pro Tips
+1 Write clear, concise commit messages
+2 Use present tense: "Add feature" not "Added feature"
+3 If you need multiple lines, omit -m and Git will open your default editor
+
+Step 7 View your commit history
+Learn to view the history of commits in your repository.
+
+Commands to Run
+git log
+git log --oneline
+
+What This Does
+`git log` shows the commit history. The `--oneline` flag provides a compact view with just the commit hash and message. Each commit has a unique SHA-1 hash identifier.
+
+Expected Outcome
+You should see your commit with its hash, author info, date, and message. The `--oneline` version shows a shortened hash and message.
+
+Pro Tips
+1 Press 'q' to exit the log view if it opens in a pager
+2 Try `git log --graph --all` for a visual representation of branches (useful later)
+3 Use `git show` to see details of the most recent commit
+
+Step 8 Practice: Make more commits
+Reinforce what you've learned by making additional commits on your own.
+
+Commands to Run
+echo "## About This Project" >> README.md
+git add README.md
+git commit -m "Add project description section"
+echo "Git is awesome!" > notes.txt
+git add notes.txt
+git commit -m "Add learning notes"
+
+What This Does
+Practice makes perfect! Notice the workflow: modify → add → commit. This cycle is fundamental to Git. The `>>` operator appends to a file instead of overwriting it.
+
+Expected Outcome
+Running `git log --oneline` should now show three commits.
+
+Pro Tips
+1 Commit early, commit often - small commits are easier to understand
+2 Each commit should represent one logical change
+3 Use `git diff` before `git add` to review what changed
+
+✓ Initialize a Git repository
+✓ Stage changes with `git add`
+✓ Create commits with meaningful messages
+✓ View your project history with `git log`
