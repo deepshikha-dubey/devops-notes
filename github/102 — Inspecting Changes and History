@@ -1,0 +1,240 @@
+102 — Inspecting Changes and History
+
+Step 1 Create a practice repository
+Set up a repository with multiple commits to practice inspection commands.
+
+Commands to Run
+mkdir -p ~/git-practice/lesson-102
+cd ~/git-practice/lesson-102
+git init
+echo "# Project Documentation" > README.md
+git add README.md
+git commit -m "Initial commit: Add README"
+echo "## Installation" >> README.md
+echo "npm install" >> README.md
+git add README.md
+git commit -m "Add installation instructions"
+echo "function hello() { return 'Hello'; }" > app.js
+git add app.js
+git commit -m "Add hello function"
+
+What This Does
+We're creating a repository with multiple commits and files. This gives us a realistic history to inspect using various Git commands.
+
+Expected Outcome
+You have a repository with 3 commits and 2 files (README.md and app.js).
+
+Pro Tips
+1 Run git log --oneline to verify you have 3 commits
+
+step 2 View unstaged changes with git diff
+Make changes to a file and see exactly what changed using git diff.
+
+Commands to Run
+echo "function goodbye() { return 'Goodbye'; }" >> app.js
+git diff
+
+What This Does
+git diff shows changes in your working directory that haven't been staged yet. It displays what you've modified since the last commit. Lines removed show with '-' and lines added show with '+'.
+
+Expected Outcome
+You should see the new goodbye function highlighted in green with a '+' prefix, showing it's been added.
+
+Pro Tips
+1 Press 'q' to exit the diff view if it opens in a pager
+2 Green lines (+ prefix) are additions, red lines (- prefix) are deletions
+3 git diff only shows UNSTAGED changes
+
+step 3 Compare staged changes
+Stage your changes and learn to view what's in the staging area.
+
+Commands to Run
+git add app.js
+git diff
+git diff --staged
+
+What This Does
+After staging, git diff shows nothing because it only shows unstaged changes. To see what's staged for commit, use git diff --staged (or --cached). This shows the difference between the staging area and the last commit.
+
+Expected Outcome
+Plain git diff shows nothing. git diff --staged shows the goodbye function as a staged addition.
+
+Pro Tips
+1 --staged and --cached are synonyms - both work the same way
+2 Always check git diff --staged before committing to review what you're about to commit
+
+step 4 Compare specific commits
+Learn to see differences between any two commits in your history.
+
+Commands to Run
+git commit -m "Add goodbye function"
+git log --oneline
+git diff HEAD~2 HEAD
+git diff HEAD~1 HEAD
+
+What This Does
+You can compare any two commits using git diff <commit1> <commit2>. HEAD is your current commit, HEAD~1 is one commit back, HEAD~2 is two commits back. This shows all changes between those points in history.
+
+Expected Outcome
+git diff HEAD~2 HEAD shows all changes in the last 2 commits. HEAD~1 HEAD shows only the most recent commit's changes.
+
+Pro Tips
+1 You can also use commit hashes instead of HEAD~N
+2 git diff HEAD~3..HEAD is equivalent to git diff HEAD~3 HEAD
+3 This is perfect for seeing what changed in a range of commits
+
+step 5 View commit history with git log
+Explore powerful git log options to format and filter your commit history.
+
+Commands to Run
+git log --oneline
+git log --oneline --graph --all
+git log --pretty=format:"%h - %an, %ar : %s"
+
+What This Does
+--oneline shows a compact view with short hashes. --graph adds a visual branch diagram. --all shows all branches. --pretty allows custom formatting where %h=hash, %an=author name, %ar=relative date, %s=subject.
+
+Expected Outcome
+You see your commit history in various formats, from compact one-liners to custom formatted output.
+
+Pro Tips
+1 Press 'q' to exit log views
+2 You can combine multiple flags: git log --oneline --graph --decorate
+3 Save custom formats as aliases in your git config
+
+step 6 Filter commit history
+Use git log filters to find specific commits quickly.
+
+Commands to Run
+git log --author="$(git config user.name)"
+git log --since="1 hour ago"
+git log --grep="Add"
+git log -- app.js
+
+What This Does
+Git log has powerful filters: --author finds commits by author, --since/--after filters by date, --grep searches commit messages, and -- <file> shows commits affecting specific files.
+
+Expected Outcome
+Each filter shows a subset of commits matching that criteria. The file filter shows only commits that modified app.js.
+
+Pro Tips
+1 Combine filters: git log --author="Name" --since="2 weeks ago"
+2 Use --until or --before for date ranges
+3 grep is case-sensitive by default, use -i for case-insensitive
+
+step 7 Inspect a specific commit
+Use git show to see complete details of any commit.
+
+Commands to Run
+git log --oneline
+git show HEAD
+git show HEAD~1
+
+What This Does
+git show displays complete information about a commit: author, date, message, and the full diff of changes. Without arguments, it shows HEAD (the latest commit).
+
+Expected Outcome
+git show HEAD displays your most recent commit with full details and diff. HEAD~1 shows the previous commit.
+
+Pro Tips
+1 You can use commit hashes: git show abc123
+2 git show is like git log -p -1 for a single commit
+3 Use git show <commit>:<file> to see a file's contents at that commit
+
+Track changes with git blame
+Discover who last modified each line of a file and when.
+
+Commands to Run
+git blame app.js
+git blame -L 1,2 app.js
+
+What This Does
+git blame annotates each line of a file with the commit hash, author, and date of the last modification. -L limits output to specific line ranges. This is invaluable for understanding why code exists.
+
+Expected Outcome
+Each line shows the commit hash, author, timestamp, and the line content. You can see who wrote each function.
+
+Pro Tips
+1 Blame isn't about blaming people - it's about understanding code history
+2 Use it to find when a bug was introduced or why code was written
+3 git blame -w ignores whitespace changes
+
+Step 9 View file history
+See all commits that affected a specific file, even through renames.
+
+Commands to Run
+git log --follow -- app.js
+git log --oneline --follow -- app.js
+git log -p -- app.js
+
+What This Does
+Adding -- <file> to git log shows commits affecting that file. --follow tracks the file through renames. -p shows the actual patch/diff for each commit.
+
+Expected Outcome
+You see all commits that modified app.js. With -p, you see exactly what changed in each commit.
+
+Pro Tips
+1 --follow is essential when files have been renamed
+2 Combine with other filters: git log --author="Name" -- file.txt
+3 Use -p to see the evolution of a file over time
+
+step 10 Advanced diff: comparing files
+Compare specific files between commits or branches.
+
+Commands to Run
+git diff HEAD~2:app.js HEAD:app.js
+git diff HEAD~2 HEAD -- app.js
+
+What This Does
+The first syntax compares a specific file at two different commits. The second shows changes to app.js between those commits. Both are useful for tracking how individual files evolved.
+
+Expected Outcome
+You see only the changes to app.js between two commits ago and now.
+
+Pro Tips
+1 This is useful when you only care about one file's changes
+2 Works with branches too: git diff main feature -- file.txt
+
+step 11 Diff statistics and summaries
+Get high-level overviews of changes without seeing every line.
+
+Commands to Run
+git diff --stat HEAD~2 HEAD
+git diff --shortstat HEAD~2 HEAD
+git diff --name-only HEAD~2 HEAD
+git diff --name-status HEAD~2 HEAD
+
+What This Does
+--stat shows files changed with insertion/deletion counts. --shortstat shows a one-line summary. --name-only lists changed files. --name-status adds whether files were added (A), modified (M), or deleted (D).
+
+Expected Outcome
+You see summaries of changes in various formats, from file lists to statistics.
+
+Pro Tips
+1 These are great for quick overviews before doing full diffs
+2 Useful in scripts and automation
+
+Step 12 Search commit contents
+Find when specific code was added or removed using git log -S.
+
+Commands to Run
+git log -S"hello" --oneline
+git log -S"hello" -p
+
+What This Does
+git log -S (pickaxe search) finds commits that added or removed a specific string. This is incredibly powerful for tracking when code appeared or disappeared. -p shows the actual changes.
+
+Expected Outcome
+You see the commit that added the 'hello' function.
+
+Pro Tips
+1 This is different from --grep which searches commit messages
+2 -S searches actual code changes
+3 Use -G for regex searches: git log -G"function.*()"
+4 Perfect for finding when a bug was introduced
+
+✓ Use git diff in various contexts (unstaged, staged, commits)
+✓ Format and filter git log output
+✓ Inspect specific commits with git show
+✓ Track line-by-line changes with git blame
+✓ Search commit history and code changes
