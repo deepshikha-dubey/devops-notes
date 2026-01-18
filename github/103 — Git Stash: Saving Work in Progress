@@ -1,0 +1,305 @@
+103 — Git Stash: Saving Work in Progress
+
+Step 1 Create a practice repository
+Set up a repository to simulate the common stash workflow scenario.
+
+Commands to Run
+mkdir -p ~/git-practice/lesson-103
+cd ~/git-practice/lesson-103
+git init
+echo "# Stash Practice" > README.md
+git add README.md
+git commit -m "Initial commit"
+git checkout -b feature-login
+echo "Login form code here" > login.html
+git add login.html
+git commit -m "Add login form"
+
+What This Does
+We're creating a realistic scenario where you're working on a feature branch. This mirrors real development where you often need to switch context mid-work.
+
+Expected Outcome
+You have a repository with a main branch and a feature-login branch with one commit.
+
+Pro Tips
+1 Run git branch to verify you're on feature-login
+
+
+Step 2 Make work-in-progress changes
+Start working on a feature but don't commit yet - simulating interrupted work.
+
+Commands to Run
+echo "Username: <input type='text'>" >> login.html
+echo "Password: <input type='password'>" >> login.html
+git status
+
+What This Does
+You've made changes but haven't committed them yet. This is work-in-progress (WIP). In real scenarios, you might get interrupted by an urgent bug fix or need to review someone else's code.
+
+Expected Outcome
+git status shows login.html as modified but not staged.
+
+Pro Tips
+1 This is a very common real-world situation
+
+
+Step 3 Try to switch branches (and fail)
+Attempt to switch to another branch while having uncommitted changes.
+
+Commands to Run
+git checkout main
+
+What This Does
+Git prevents branch switching when you have uncommitted changes that would be lost or create conflicts. You need to either commit, discard, or stash your changes first.
+
+Expected Outcome
+Git shows an error: 'Please commit your changes or stash them before you switch branches.'
+
+Pro Tips
+1 This protection prevents accidental data loss
+2 You have three options: commit, discard (git restore), or stash
+
+Step 4 Stash your changes
+Save your work-in-progress changes using git stash.
+
+Commands to Run
+git stash
+git status
+cat login.html
+
+What This Does
+git stash saves your uncommitted changes (both staged and unstaged) and reverts your working directory to match HEAD. Your changes are safely stored and you can retrieve them later.
+
+Expected Outcome
+git status shows a clean working tree. login.html no longer has the input fields - it's back to the committed version.
+
+Pro Tips
+1 Stash is like a temporary commit that's not part of your branch history
+2 Your changes aren't lost - they're in the stash storage area
+
+Step 5 Switch branches successfully
+Now that changes are stashed, switch to another branch.
+
+Commands to Run
+git checkout main
+git branch
+ls
+
+What This Does
+With a clean working directory, you can freely switch branches. Notice that login.html doesn't exist on main - it was only on the feature branch.
+
+Expected Outcome
+You're now on main branch. login.html is not in the file list.
+
+Pro Tips
+1 This is the typical stash workflow: stash → switch → work → switch back → apply stash
+
+Step 6 View your stash list
+See what's been stashed using git stash list.
+
+Commands to Run
+git stash list
+
+What This Does
+git stash list shows all stashes you've created. Each stash has an index (stash@{0}, stash@{1}, etc.) and shows the branch it was created from plus a description.
+
+Expected Outcome
+You see one stash entry: 'stash@{0}: WIP on feature-login: <commit message>'
+
+Pro Tips
+1 stash@{0} is always the most recent stash
+2 You can have multiple stashes - they stack up
+3 WIP stands for Work In Progress
+
+Step 7 Return and apply your stash
+Go back to your feature branch and restore your stashed changes.
+
+Commands to Run
+git checkout feature-login
+git stash apply
+cat login.html
+git status
+
+What This Does
+git stash apply restores your stashed changes to the working directory. The changes are reapplied exactly as they were when you stashed them.
+
+Expected Outcome
+login.html now has the input fields back. git status shows the file as modified.
+
+Pro Tips
+1 apply doesn't remove the stash from the stash list - it's still there
+2 This is useful if you want to apply the same stash to multiple branches
+
+Step 8 Stash list still contains the stash
+Verify that applying doesn't remove the stash.
+
+Commands to Run
+git stash list
+
+What This Does
+After git stash apply, the stash remains in the stash list. This lets you apply it again elsewhere if needed, but you should clean it up when done.
+
+Expected Outcome
+The stash is still in the list: 'stash@{0}: WIP on feature-login...'
+
+Pro Tips
+1 Use git stash drop to remove a stash manually
+2 Or use git stash pop (covered next) to apply and remove in one command
+
+Step 9 Drop the stash
+Remove a stash from the stash list when you no longer need it.
+
+Commands to Run
+git stash drop stash@{0}
+git stash list
+
+What This Does
+git stash drop removes a stash from the list. After applying and verifying your changes, you should drop the stash to keep your stash list clean.
+
+Expected Outcome
+The stash list is now empty.
+
+Pro Tips
+1 You can specify which stash to drop: git stash drop stash@{1}
+2 Without arguments, it drops stash@{0} (most recent)
+
+Step 10 Use git stash pop (apply + drop)
+Learn the shortcut that applies and removes a stash in one command.
+
+Commands to Run
+echo "<button>Submit</button>" >> login.html
+git stash
+git checkout main
+git checkout feature-login
+git stash pop
+cat login.html
+git stash list
+
+What This Does
+git stash pop is equivalent to git stash apply + git stash drop. It's the most common stash command - apply the changes and remove the stash in one step.
+
+Expected Outcome
+The submit button is added back to login.html, and the stash list is empty (stash was automatically dropped).
+
+Pro Tips
+1 Use pop when you know you won't need the stash again
+2 Use apply when you might want to reuse the stash elsewhere
+
+Step 11 Create named stashes
+Add descriptive messages to your stashes for better organization.
+
+Commands to Run
+echo "<!-- Validation logic -->" >> login.html
+git stash push -m "WIP: Add form validation"
+git stash list
+
+What This Does
+git stash push -m lets you add a custom message to your stash. This is much better than the default 'WIP on branch' message when you have multiple stashes.
+
+Expected Outcome
+The stash list shows your custom message: 'stash@{0}: On feature-login: WIP: Add form validation'
+
+Pro Tips
+1 Always use descriptive stash messages when you have multiple WIP items
+2 git stash push is the modern command (git stash save is deprecated)
+
+Step 12 Stash including untracked files
+Learn to stash new files that haven't been added to Git yet.
+
+Commands to Run
+echo "CSS styles here" > login.css
+git status
+git stash
+ls
+
+What This Does
+By default, git stash only saves tracked files (files already added to Git). Untracked files are ignored. Notice login.css is still there after stashing.
+
+Expected Outcome
+login.css remains in the directory because it was untracked.
+
+Pro Tips
+1 This can be surprising - new files aren't stashed by default
+
+Step 13 Stash with untracked files
+Use the -u flag to include untracked files in your stash.
+
+Commands to Run
+git stash -u
+ls
+git stash pop
+ls
+
+What This Does
+git stash -u (or --include-untracked) stashes both tracked changes AND new untracked files. Now login.css is included in the stash.
+
+Expected Outcome
+After stashing with -u, login.css disappears. After popping, it comes back.
+
+Pro Tips
+1 Use -u when you have new files you want to stash
+2 -a (--all) also includes ignored files, but that's rarely needed
+
+Step 14 Apply a specific stash
+When you have multiple stashes, apply a specific one by index.
+
+Commands to Run
+git stash push -m "First stash"
+echo "More changes" >> README.md
+git stash push -m "Second stash"
+git stash list
+git stash apply stash@{1}
+git status
+
+What This Does
+You can have multiple stashes stacked up. Use git stash apply stash@{N} to apply a specific stash. stash@{0} is newest, higher numbers are older.
+
+Expected Outcome
+You have 3 stashes in the list. Applying stash@{1} brings back the first stash's changes.
+
+Pro Tips
+1 Stashes are a stack - newer stashes get lower numbers
+2 When a new stash is created, existing stash numbers increment
+
+Step 15 Clear all stashes
+Remove all stashes at once when cleaning up.
+
+Commands to Run
+git stash list
+git stash clear
+git stash list
+
+What This Does
+git stash clear removes ALL stashes. Use this carefully - stashes are gone permanently. It's useful when you have accumulated many old stashes you no longer need.
+
+Expected Outcome
+All stashes are deleted. The stash list is empty.
+
+Pro Tips
+1 BE CAREFUL - there's no undo for git stash clear
+2 Review your stash list before clearing
+3 Alternatively, drop stashes one by one for more control
+
+Step 16 Best practices summary
+Review when and how to use git stash effectively.
+
+Commands to Run
+git status
+
+What This Does
+**When to use git stash:** - Need to switch branches but have uncommitted changes - Want to pull latest changes but have local modifications - Interrupted by urgent work mid-feature - Want to try something experimental without committing **Best practices:** - Use descriptive messages with -m - Pop or drop stashes after applying - Don't let stashes accumulate - they're temporary storage - For longer-term WIP, use a WIP commit on a branch instead
+
+Expected Outcome
+You understand the proper use cases and workflow for git stash.
+
+Pro Tips
+1 Stash is for temporary, short-term storage
+2 For multi-day WIP, commit to a branch instead
+3 Clean up your stash list regularly
+
+✓ When and why to use git stash
+✓ How to stash and apply changes
+✓ The difference between apply and pop
+✓ How to create named stashes
+✓ How to stash untracked files with -u
+✓ How to manage multiple stashes
