@@ -1,0 +1,345 @@
+102 — GitHub Actions Basics
+Master GitHub Actions workflow syntax, triggers, jobs, and steps to automate testing and deployment.
+
+Step 1 Create workflow directory
+Set up structure for GitHub Actions workflows.
+
+Commands to Run
+cd cicd-demo
+mkdir -p .github/workflows
+ls -la .github/workflows (on windows dir .github/workflows)
+
+What This Does
+GitHub Actions looks for workflow files in .github/workflows/. Each YAML file defines a workflow.
+
+Expected Outcome
+Directory created. Ready to add workflow files.
+
+Pro Tips
+1 All workflows go in .github/workflows/
+2 Can have multiple workflow files
+3 Files must have .yml or .yaml extension
+
+Step 2 Create first workflow
+Build a workflow to run tests automatically.
+
+Commands to Run
+cat > .github/workflows/test.yml << 'EOF'
+name: Run Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+    
+    - name: Install dependencies
+      run: npm install
+    
+    - name: Run tests
+      run: npm test
+EOF
+
+cat .github/workflows/test.yml
+
+What This Does
+Workflow runs on push/PR to main. Checks out code, installs Node.js, installs deps, runs tests.
+
+Expected Outcome
+test.yml created with complete workflow definition.
+
+Pro Tips
+1 name: workflow display name
+2 on: specifies triggers
+3 jobs: one or more jobs to run
+4 steps: sequential commands in a job
+5 uses: runs an action from marketplace
+
+Step 3 Understand workflow syntax
+Break down workflow components.
+
+Commands to Run
+echo 'Workflow structure:
+name: Display name
+on: When to trigger (push, pull_request, schedule, etc.)
+jobs: Dictionary of jobs
+  job_id:
+    runs-on: Runner OS (ubuntu-latest, windows-latest, macos-latest)
+    steps: List of steps
+    - uses: Action to run
+    - run: Shell command
+    - name: Step name'
+
+What This Does
+YAML structure defines entire CI pipeline. Jobs run in parallel by default, steps run sequentially.
+
+Expected Outcome
+Understanding of workflow file structure.
+
+Pro Tips
+1 Indent with spaces, not tabs
+2 Jobs run in parallel unless dependencies specified
+3 Steps run sequentially in order
+4 Each step can use action or run command
+
+Step 4
+Commit and push workflow
+Trigger first automated run.
+
+Commands to Run
+git add .github/
+git commit -m 'Add GitHub Actions workflow'
+(git remote add origin https://github.com/<your-username>/cicd-demo.git)
+git push origin main
+
+What This Does
+Pushing workflow file triggers it. GitHub runs workflow on their servers.
+
+Expected Outcome
+Workflow file pushed. GitHub Actions automatically detects and runs it.
+
+Pro Tips
+1 First run may take 30-60 seconds to start
+2 GitHub downloads dependencies and caches them
+3 Subsequent runs faster due to caching
+
+Step 5 View workflow results
+Check workflow execution in GitHub UI.
+
+Commands to Run
+gh run list
+gh run view --log
+
+What This Does
+gh CLI shows workflow runs and their status. Can also view in GitHub Actions tab.
+
+Expected Outcome
+Run listed with status (completed, success). Logs show each step's output.
+
+Pro Tips
+1 Green check: success
+2 Red X: failure
+3 Yellow dot: in progress
+4 Click run for detailed logs
+5 gh run watch watches live progress
+
+Step 6 Create a matrix build
+Test across multiple versions simultaneously.
+
+Commands to Run
+cat > .github/workflows/matrix-test.yml << 'EOF'
+name: Matrix Tests
+
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [16, 18, 20]
+    
+    steps:
+    - uses: actions/checkout@v4
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+    - run: npm install
+    - run: npm test
+EOF
+
+git add .github/workflows/matrix-test.yml
+git commit -m 'Add matrix build'
+git push
+
+What This Does
+Matrix strategy creates multiple jobs. Tests against Node 16, 18, and 20 in parallel.
+
+Expected Outcome
+Three jobs run concurrently, one for each Node version.
+
+Pro Tips
+1 Matrix tests multiple configurations
+2 Jobs run in parallel (faster)
+3 Use for: OS versions, language versions, dependencies
+4 ${{ matrix.variable }} references matrix values
+5 Can combine multiple matrix dimensions
+
+Step 7 Add job dependencies
+Control job execution order.
+
+Commands to Run
+cat > .github/workflows/sequential.yml << 'EOF'
+name: Sequential Jobs
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo "Building..."  
+  test:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+    - run: echo "Testing..."  
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [build, test]
+    steps:
+    - run: echo "Deploying..."
+EOF
+
+git add .github/workflows/sequential.yml
+git commit -m 'Add sequential workflow'
+git push
+
+What This Does
+needs: specifies job dependencies. Test waits for build, deploy waits for both.
+
+Expected Outcome
+Jobs run in order: build → test → deploy.
+
+Pro Tips
+1 Default: all jobs parallel
+2 needs: creates dependency chain
+3 Deploy only runs if tests pass
+4 Can depend on multiple jobs
+5 Fail fast: if one fails, dependents cancelled
+
+Step 8 Use environment variables
+Pass data between steps and jobs.
+
+Commands to Run
+cat > .github/workflows/env-vars.yml << 'EOF'
+name: Environment Variables
+
+on: push
+
+env:
+  GLOBAL_VAR: "Available to all jobs"
+
+jobs:
+  demo:
+    runs-on: ubuntu-latest
+    env:
+      JOB_VAR: "Available to all steps in this job"
+    
+    steps:
+    - name: Use variables
+      run: |
+        echo "Global: $GLOBAL_VAR"
+        echo "Job: $JOB_VAR"
+        echo "Step-specific variable"
+      env:
+        STEP_VAR: "Only in this step"
+    
+    - name: GitHub context
+      run: |
+        echo "Repository: ${{ github.repository }}"
+        echo "Branch: ${{ github.ref }}"
+        echo "Commit SHA: ${{ github.sha }}"
+EOF
+
+git add .github/workflows/env-vars.yml
+git commit -m 'Add environment variables example'
+git push
+
+What This Does
+Environment variables at workflow, job, or step level. GitHub provides context variables.
+
+Expected Outcome
+Variables accessible at appropriate scopes. GitHub context shows repo info.
+
+Pro Tips
+1 Workflow level: available everywhere
+2 Job level: available in that job
+3 Step level: only that step
+4 ${{ github.* }} accesses GitHub context
+5 Secrets stored securely in Settings
+
+Step 9 Conditional execution
+Run steps only when conditions met.
+
+Commands to Run
+cat > .github/workflows/conditional.yml << 'EOF'
+name: Conditional Execution
+
+on: push
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Always runs
+      run: echo "This always runs"
+    
+    - name: Only on main branch
+      if: github.ref == 'refs/heads/main'
+      run: echo "Deploying to production"
+    
+    - name: Only on tags
+      if: startsWith(github.ref, 'refs/tags/')
+      run: echo "Creating release"
+    
+    - name: Only on PR
+      if: github.event_name == 'pull_request'
+      run: echo "Running PR checks"
+EOF
+
+git add .github/workflows/conditional.yml
+git commit -m 'Add conditional workflow'
+git push
+
+What This Does
+if: conditions control when steps run. Useful for branch-specific or event-specific actions.
+
+Expected Outcome
+Only applicable steps execute based on branch, event, or other conditions.
+
+Pro Tips
+1 if: supports expressions
+2 Check branch, event type, files changed
+3 success(), failure(), always() for job status
+4 Complex logic with &&, ||
+5 Skip entire jobs with if at job level
+
+Step 10 Clean up test workflows
+Keep main workflow, remove examples.
+
+Commands to Run
+rm .github/workflows/matrix-test.yml .github/workflows/sequential.yml .github/workflows/env-vars.yml .github/workflows/conditional.yml
+git add .github/workflows/
+git commit -m 'Clean up example workflows'
+git push
+
+What This Does
+Keep test.yml for continued use. Remove example workflows to avoid cluttering Actions tab.
+
+Expected Outcome
+Only test.yml remains. Cleaner workflow list.
+
+Pro Tips
+1 Start with simple workflows
+2 Add complexity as needed
+3 Document workflows with comments
+4 Review Actions tab regularly
+5 Disable workflows instead of deleting if might reuse
+
+✓ Created workflows with YAML syntax
+✓ Used triggers for push and pull requests
+✓ Defined jobs and steps
+✓ Implemented matrix builds
+✓ Controlled execution with conditions and dependencies
