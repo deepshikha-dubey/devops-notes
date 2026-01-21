@@ -1,0 +1,532 @@
+103 — Building and Testing Code with GitHub Actions
+Master automated testing in CI/CD pipelines. Build applications, run test suites, generate coverage reports, and use matrix strategies for cross-platform testing.
+
+Step 1 Create a project with tests
+Set up a Node.js application with a proper test suite.
+
+Commands to Run
+mkdir cicd-testing && cd cicd-testing
+npm init -y
+npm install --save express
+npm install --save-dev jest supertest
+
+cat > app.js << 'EOF'
+const express = require('express');
+const app = express();
+
+app.get('/', (req, res) => {
+  res.json({ message: 'Hello CI/CD!' });
+});
+
+app.get('/health', (req, res) => {
+  res.json({ status: 'healthy' });
+});
+
+module.exports = app;
+EOF
+
+cat > server.js << 'EOF'
+const app = require('./app');
+const port = process.env.PORT || 3000;
+
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
+});
+EOF
+
+cat > app.test.js << 'EOF'
+const request = require('supertest');
+const app = require('./app');
+
+describe('API Endpoints', () => {
+  test('GET / returns message', async () => {
+    const response = await request(app).get('/');
+    expect(response.status).toBe(200);
+    expect(response.body.message).toBe('Hello CI/CD!');
+  });
+
+  test('GET /health returns healthy status', async () => {
+    const response = await request(app).get('/health');
+    expect(response.status).toBe(200);
+    expect(response.body.status).toBe('healthy');
+  });
+});
+EOF
+
+npx json -I -f package.json -e 'this.scripts.test="jest"'
+npx json -I -f package.json -e 'this.scripts.start="node server.js"'
+npm test
+
+What This Does
+We create a REST API with two endpoints and comprehensive tests. The app.js exports the Express app separately from server.js, making it testable with supertest.
+
+Expected Outcome
+Tests pass successfully. You'll see '2 passed' in the test output. This proves our application works before we automate it in CI.
+
+Pro Tips
+1 Separating app from server allows testing without starting the server
+2 supertest makes HTTP endpoint testing simple
+3 All tests should pass locally before pushing to CI
+4 Use descriptive test names that explain what's being tested
+
+Step 2 Initialize Git and push to GitHub
+Version control your project and create a remote repository.
+
+Commands to Run
+git init
+echo 'node_modules/' > .gitignore
+git add .
+git commit -m 'Initial commit with tests'
+gh repo create cicd-testing --public --source=. --remote=origin --push
+
+What This Does
+GitHub Actions requires code in a GitHub repository. The gh CLI creates the repo and pushes our code in one command.
+
+Expected Outcome
+Repository created at github.com/[username]/cicd-testing. Code pushed to main branch.
+
+Pro Tips
+1 Always gitignore node_modules to avoid pushing dependencies
+2 Public repos get unlimited GitHub Actions minutes
+3 Private repos get 2,000 free minutes per month
+4 Use meaningful commit messages even in practice projects
+
+Step 3 Create CI workflow for testing
+Build a workflow that runs tests on every push and pull request.
+
+Commands to Run
+mkdir -p .github/workflows
+
+cat > .github/workflows/test.yml << 'EOF'
+name: Test Suite
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run tests
+      run: npm test
+EOF
+
+cat .github/workflows/test.yml
+
+What This Does
+This workflow triggers on pushes and PRs to main. It checks out code, sets up Node.js 20, installs dependencies with npm ci (faster and more reliable than npm install), then runs tests.
+
+Expected Outcome
+Workflow file created with 4 steps. Ready to run tests automatically on GitHub.
+
+Pro Tips
+1 npm ci is preferred in CI - it's faster and ensures reproducible builds
+2 actions/checkout@v4 is the latest version for code checkout
+3 Specify exact Node version to avoid surprises
+4 Workflow triggers can be customized (push, PR, schedule, manual)
+
+Step 4 Push workflow and watch it run
+Commit the workflow and observe the first automated test run.
+
+Commands to Run
+git add .github/
+git commit -m 'Add CI workflow'
+git push origin main
+gh run watch
+
+What This Does
+Pushing the workflow file triggers GitHub Actions. The 'gh run watch' command streams live logs from the running workflow to your terminal.
+
+Expected Outcome
+Workflow starts within seconds. You'll see each step execute: checkout, setup Node, install, test. All steps should show green checkmarks.
+
+Pro Tips
+1 First run may take 2-3 minutes as GitHub provisions a runner
+2 Subsequent runs are faster due to caching
+3 Press Ctrl+C to exit watch mode - workflow continues running
+4 View detailed logs at github.com/[user]/[repo]/actions
+
+Step 5 Add test coverage reporting
+Generate code coverage metrics to track test quality.
+
+Commands to Run
+cat > jest.config.js << 'EOF'
+module.exports = {
+  collectCoverage: true,
+  coverageDirectory: 'coverage',
+  coverageReporters: ['text', 'lcov', 'html'],
+  testEnvironment: 'node'
+};
+EOF
+npm test
+ls -la coverage/
+
+What This Does
+Jest generates coverage reports showing which lines of code are tested. 'text' reports to console, 'lcov' for tools, 'html' for browsing.
+
+Expected Outcome
+Coverage report shows percentage of code tested. You'll see an HTML report in coverage/index.html and a summary in the terminal.
+
+Pro Tips
+1 Aim for 80%+ coverage on critical code paths
+2 100% coverage doesn't guarantee bug-free code
+3 Coverage reports help identify untested code
+4 Add coverage/ to .gitignore - don't commit generated reports
+
+Step 6 Update workflow with coverage
+Modify the CI workflow to generate and display coverage.
+
+Commands to Run
+cat > .github/workflows/test.yml << 'EOF'
+name: Test Suite
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run tests with coverage
+      run: npm test -- --coverage
+    
+    - name: Upload coverage reports
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: coverage-report
+        path: coverage/
+EOF
+
+echo 'coverage/' >> .gitignore
+git add .
+git commit -m 'Add coverage reporting'
+git push
+
+What This Does
+Enhanced workflow with npm caching (speeds up installs) and artifact upload (saves coverage reports). 'if: always()' ensures coverage uploads even if tests fail.
+
+Expected Outcome
+Workflow runs with coverage generation. Coverage reports available as downloadable artifacts in GitHub Actions UI.
+
+Pro Tips
+1 cache: 'npm' dramatically speeds up dependency installation
+2 Artifacts persist for 90 days by default
+3 Download artifacts from Actions tab → Workflow run → Artifacts section
+4 if: always() runs step regardless of previous step status
+
+
+Step 7 Create matrix build for multiple Node versions
+Test against multiple Node.js versions simultaneously.
+
+Commands to Run
+cat > .github/workflows/matrix-test.yml << 'EOF'
+name: Matrix Tests
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18, 20, 22]
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'  
+    - name: Install dependencies
+      run: npm ci    
+    - name: Run tests
+      run: npm test
+EOF
+
+git add .github/workflows/matrix-test.yml
+git commit -m 'Add matrix testing'
+git push
+
+What This Does
+Matrix strategy creates 3 parallel jobs, one for each Node version (18, 20, 22). Tests run simultaneously, dramatically reducing total CI time.
+
+Expected Outcome
+Three jobs run in parallel. You'll see separate results for Node 18, 20, and 22. All should pass if code is compatible.
+
+Pro Tips
+1 Matrix builds test compatibility across versions
+2 Jobs run in parallel - 3x faster than sequential
+3 Use ${{ matrix.variable }} to reference matrix values
+4 Can matrix OS too: [ubuntu-latest, windows-latest, macos-latest]
+5 Limit matrix size to control CI minutes usage
+
+Step 8 Add build step for production
+Create a build job that prepares code for deployment.
+
+Commands to Run
+cat > .github/workflows/build.yml << 'EOF'
+name: Build
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci --production
+    
+    - name: Create production bundle
+      run: |
+        mkdir -p dist
+        cp -r node_modules dist/
+        cp app.js server.js package.json dist/
+        tar -czf app-${{ github.sha }}.tar.gz dist/
+    
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: production-build
+        path: app-${{ github.sha }}.tar.gz
+        retention-days: 30
+EOF
+
+git add .github/workflows/build.yml
+git commit -m 'Add build workflow'
+git push
+
+What This Does
+Build workflow installs only production dependencies (--production), creates a deployable bundle, and uploads it as an artifact. Triggers on pushes to main and version tags.
+
+Expected Outcome
+Tarball created with production-ready code. Available as downloadable artifact. Can be deployed to servers.
+
+Pro Tips
+1 npm ci --production excludes devDependencies (smaller bundle)
+2 Artifacts can be downloaded in subsequent jobs or manually
+3 retention-days controls how long artifacts are kept
+4 ${{ github.sha }} provides unique commit hash
+5 Version tags (v1.0.0) are common release triggers
+
+Step 9 Implement job dependencies
+Chain jobs so build only runs after tests pass.
+
+Commands to Run
+cat > .github/workflows/ci-cd.yml << 'EOF'
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+    - run: npm ci
+    - run: npm test
+  
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push'
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+    - run: npm ci --production
+    - run: |
+        mkdir -p dist
+        cp -r node_modules dist/
+        cp *.js package.json dist/
+        tar -czf app.tar.gz dist/
+    - uses: actions/upload-artifact@v4
+      with:
+        name: app-bundle
+        path: app.tar.gz
+EOF
+
+git add .github/workflows/ci-cd.yml
+git commit -m 'Add combined CI/CD pipeline'
+git push
+
+What This Does
+needs: test ensures build only runs if tests pass. if: github.event_name == 'push' skips build on PRs. This prevents broken code from being built.
+
+Expected Outcome
+On push: tests run, then build. On PR: only tests run. If tests fail, build is skipped.
+
+Pro Tips
+1 needs creates job dependencies and execution order
+2 Failed dependencies cancel dependent jobs
+3 if conditions control when jobs run
+4 github.event_name distinguishes push from pull_request
+5 Combine jobs in one file or keep separate - both work
+
+Step 10 Add status badges to README
+Display CI status in your repository README.
+
+cat > README.md << 'EOF'
+# CI/CD Testing Demo
+
+![CI/CD Pipeline](https://github.com/${{ github.repository }}/workflows/CI/CD%20Pipeline/badge.svg)
+
+Demonstration of automated testing and building with GitHub Actions.
+
+## Features
+
+- Automated testing on every commit
+- Code coverage reporting
+- Matrix builds across Node versions
+- Production-ready build artifacts
+
+## Running Locally
+
+```bash
+npm install
+npm test
+npm start
+```
+
+## CI/CD
+
+This project uses GitHub Actions for:
+- Running test suite on every push/PR
+- Generating code coverage reports
+- Building production bundles
+- Testing across multiple Node.js versions
+EOF
+
+Status badges show workflow status at a glance. Green badge = passing, red = failing. Replace ${{ github.repository }} with your actual username/repo.
+
+Expected Outcome
+README displays with CI status badge. Badge updates automatically as workflow runs.
+
+Pro Tips
+1 Badge URL format: github.com/{user}/{repo}/workflows/{workflow-name}/badge.svg
+2 Workflow name must match exactly (URL-encoded spaces as %20)
+3 Badges link to Actions tab when clicked
+4 Add badges for coverage, dependencies, version too
+
+Step 11 Test PR workflow
+Create a pull request to verify CI runs on code review.
+
+Commands to Run
+git checkout -b add-feature
+Copy
+cat >> app.js << 'EOF'
+
+app.get('/version', (req, res) => {
+  res.json({ version: '1.0.0' });
+});
+EOF
+
+cat >> app.test.js << 'EOF'
+
+test('GET /version returns version info', async () => {
+  const response = await request(app).get('/version');
+  expect(response.status).toBe(200);
+  expect(response.body.version).toBe('1.0.0');
+});
+EOF
+
+npm test
+git add .
+git commit -m 'Add version endpoint'
+git push -u origin add-feature
+gh pr create --title 'Add version endpoint' --body 'Adds /version endpoint with tests'
+What This Does
+Creating a PR triggers the CI workflow. Tests must pass before merging. This enforces quality gates.
+
+Expected Outcome
+Pull request created with CI checks running. PR shows pending status, then green checkmark when tests pass.
+
+Pro Tips
+1 Never merge PRs with failing tests
+2 Enable branch protection to require CI checks
+3 Team members see CI status before reviewing
+4 Failing tests block merge - intentional safety feature
+
+Step 12 View workflow insights
+Analyze CI performance and history.
+
+Commands to Run
+gh run list --limit 10
+gh run view --log
+
+What This Does
+GitHub tracks workflow history, duration, and success rate. Use insights to optimize slow steps.
+
+Expected Outcome
+List shows recent workflow runs with status, duration, and triggered by. Detailed logs available for debugging.
+
+Pro Tips
+1 Monitor workflow duration - optimize if over 5-10 minutes
+2 Check success rate - investigate if below 90%
+3 Slow steps are candidates for caching or parallelization
+4 Failed runs preserve logs for 90 days
+5 Use Actions usage reports to track CI minutes consumption
+
+✓ Automated test execution on every commit
+✓ Code coverage reporting and tracking
+✓ Matrix builds for multi-version testing
+✓ Build artifact generation and storage
+✓ Job dependencies and conditional execution
+✓ PR-based quality gates
