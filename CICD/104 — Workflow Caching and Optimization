@@ -1,0 +1,74 @@
+104 — Workflow Caching and Optimization
+Speed up CI/CD pipelines with intelligent caching strategies. Learn dependency caching, Docker layer caching, and workflow optimization techniques to reduce build times.
+
+Step 1 Measure baseline performance
+Establish current workflow speed before optimization.
+
+Commands to Run
+cd cicd-testing
+gh run list --limit 5 --json durationMs,name,conclusion
+gh run list --limit 5 --json name,conclusion,startedAt,updatedAt(in window)
+gh run view --log | grep 'Elapsed time'
+
+What This Does
+Before optimizing, measure current performance. GitHub tracks duration of each step and total workflow time.
+
+Expected Outcome
+You'll see workflow durations, likely 2-4 minutes total. 'Install dependencies' step probably takes 30-60 seconds.
+
+Pro Tips
+1 Baseline metrics help prove optimization effectiveness
+2 Focus on slowest steps first for biggest impact
+3 Dependency installation is usually the slowest step
+4 Track improvements after each optimization
+
+Step 2 Add npm caching to workflow
+Cache node_modules to speed up subsequent runs.
+
+Commands to Run
+cat > .github/workflows/cached-test.yml << 'EOF'
+name: Cached Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js with caching
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run tests
+      run: npm test
+EOF
+
+git add .github/workflows/cached-test.yml
+git commit -m 'Add npm caching'
+git push
+gh run watch
+
+What This Does
+The cache: 'npm' option automatically caches npm dependencies based on package-lock.json. Subsequent runs restore cache instead of downloading everything.
+
+Expected Outcome
+First run: cache miss, downloads all dependencies. Second run: cache hit, 'Install dependencies' completes in ~5 seconds instead of 30-60.
+
+Pro Tips
+1 setup-node@v4 handles npm caching automatically
+2 Cache invalidates when package-lock.json changes
+3 Saves bandwidth and time on every run
+4 Works with npm, yarn, and pnpm
+5 GitHub provides 10GB cache storage per repository
