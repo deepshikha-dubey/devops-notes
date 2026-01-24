@@ -1,0 +1,554 @@
+201 — Building Docker Images in CI-CD
+Automate Docker image builds in GitHub Actions. Learn tagging strategies, build optimization, and how to build images for every commit automatically.
+
+Step 1 Create a containerized application
+Set up a Node.js app with Dockerfile for CI/CD practice.
+
+Commands to Run
+mkdir docker-ci-app && cd docker-ci-app
+Copy
+npm init -y
+Copy
+npm install express
+Copy
+cat > app.js << 'EOF'
+const express = require('express');
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'Hello from Docker CI!',
+    version: process.env.APP_VERSION || 'dev',
+    commit: process.env.GIT_COMMIT || 'unknown'
+  });
+});
+
+app.get('/health', (req, res) => {
+  res.json({ status: 'healthy', timestamp: new Date().toISOString() });
+});
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on port ${PORT}`);
+});
+EOF
+Copy
+cat > Dockerfile << 'EOF'
+FROM node:20-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+COPY app.js .
+EXPOSE 3000
+CMD ["node", "app.js"]
+
+docker build -t docker-ci-app:local .
+docker run -d -p 3000:3000 --name test-app docker-ci-app:local
+curl http://localhost:3000
+docker stop test-app && docker rm test-app
+
+What This Does
+We create an Express app that displays version and commit info from environment variables. The Dockerfile uses best practices: Alpine base, npm ci, and proper layer ordering.
+
+Expected Outcome
+App builds and runs successfully. curl returns JSON with message, version, and commit. Container stops cleanly.
+
+Pro Tips
+1 Alpine images are smaller and faster to build/pull
+2 npm ci --only=production excludes dev dependencies
+3 Environment variables allow runtime configuration
+4 Test Docker builds locally before CI automation
+
+Step 2 Initialize Git repository
+Version control the project and push to GitHub.
+
+Commands to Run
+git init
+
+cat > .gitignore << 'EOF'
+node_modules/
+.env
+*.log
+
+git add .
+git commit -m 'Initial commit: Docker app with Dockerfile'
+gh repo create docker-ci-app --public --source=. --remote=origin --push
+
+What This Does
+GitHub repository required for GitHub Actions. Public repos get unlimited Actions minutes.
+
+Expected Outcome
+Repository created and code pushed. Ready for CI/CD workflows.
+
+Step 3 Create basic Docker build workflow
+Build Docker images on every push using GitHub Actions.
+
+Commands to Run
+mkdir -p .github/workflows
+Copy
+cat > .github/workflows/docker-build.yml << 'EOF'
+name: Docker Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Build Docker image
+      run: docker build -t docker-ci-app:${{ github.sha }} .
+    
+    - name: Test image
+      run: |
+        docker run -d -p 3000:3000 --name test docker-ci-app:${{ github.sha }}
+        sleep 3
+        curl http://localhost:3000
+        docker stop test
+
+git add .github/
+git commit -m 'Add Docker build workflow'
+git push
+gh run watch
+
+What This Does
+Workflow builds image tagged with commit SHA (${{ github.sha }}), runs container, tests it with curl, then stops. This validates every commit produces a working image.
+
+Expected Outcome
+Workflow runs successfully. Image builds, container starts, curl returns JSON, container stops. Green checkmark in GitHub.
+
+Pro Tips
+1 ${{ github.sha }} provides unique commit hash
+2 sleep 3 allows container to start before testing
+3 Testing image in CI catches runtime issues early
+4 Each commit gets unique image tag
+
+Step 4 Use Docker Buildx for advanced features
+Enable Buildx for better caching and multi-platform builds.
+
+Commands to Run
+cat > .github/workflows/buildx.yml << 'EOF'
+name: Docker Buildx
+
+on: push
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Build with Buildx
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: false
+        tags: docker-ci-app:buildx
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+git add .github/workflows/buildx.yml
+git commit -m 'Add Buildx workflow'
+git push
+
+What This Does
+setup-buildx-action enables Buildx. build-push-action provides caching (type=gha uses GitHub cache), multi-platform builds, and more. mode=max caches all intermediate layers.
+
+Expected Outcome
+Image builds with Buildx. First run caches layers. Second run significantly faster due to cache hits.
+
+Pro Tips
+1 Buildx is Docker's modern build engine
+2 GitHub Actions cache (type=gha) is free and fast
+3 mode=max caches everything for maximum speed
+4 Buildx required for multi-platform builds
+5 Backwards compatible with regular Docker builds
+
+Step 5 Implement semantic versioning tags
+Tag images with version numbers, commit SHAs, and branch names.
+
+Commands to Run
+cat > .github/workflows/tagging.yml << 'EOF'
+name: Docker Tagging
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Docker metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: docker-ci-app
+        tags: |
+          type=ref,event=branch
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=sha,prefix={{branch}}-
+    
+    - name: Build image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: false
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+
+cat .github/workflows/tagging.yml
+
+What This Does
+metadata-action generates tags automatically. For tag v1.2.3, creates: 1.2.3, 1.2, main-sha123. For branch, creates: branch-name, branch-sha123. Smart tagging without manual work.
+
+Expected Outcome
+Workflow creates multiple tags per build. Version tags for releases, branch tags for development, SHA for traceability.
+
+Pro Tips
+1 Semantic versioning: major.minor.patch (v1.2.3)
+2 type=semver works with Git tags like v1.0.0
+3 type=ref tags with branch or tag name
+4 type=sha includes commit hash for traceability
+5 Multiple tags per image are free - no extra storage
+
+Step 6 Add build arguments for versioning
+Pass Git metadata into image at build time.
+
+Commands to Run
+cat > Dockerfile << 'EOF'
+FROM node:20-alpine
+
+ARG APP_VERSION=dev
+ARG GIT_COMMIT=unknown
+
+ENV APP_VERSION=${APP_VERSION}
+ENV GIT_COMMIT=${GIT_COMMIT}
+
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+COPY app.js .
+
+EXPOSE 3000
+CMD ["node", "app.js"]
+EOF
+Copy
+cat > .github/workflows/versioned-build.yml << 'EOF'
+name: Versioned Build
+
+on: push
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Get version
+      id: version
+      run: |
+        echo "version=$(git describe --tags --always)" >> $GITHUB_OUTPUT
+        echo "commit=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+    
+    - name: Build with version info
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: false
+        build-args: |
+          APP_VERSION=${{ steps.version.outputs.version }}
+          GIT_COMMIT=${{ steps.version.outputs.commit }}
+        tags: docker-ci-app:${{ steps.version.outputs.version }}
+
+git add Dockerfile .github/workflows/versioned-build.yml
+git commit -m 'Add versioned builds'
+git push
+gh run watch
+
+What This Does
+Dockerfile ARG receives build-time values. ENV makes them available at runtime. Workflow extracts Git version and commit, passes as build-args. App displays these in API response.
+
+Expected Outcome
+Image tagged with Git version. When running container and calling API, response includes actual version and commit SHA.
+
+Pro Tips
+1 ARG for build-time, ENV for runtime
+2 git describe creates version from tags
+3 git rev-parse --short gets short commit hash
+4 GITHUB_OUTPUT passes values between steps
+5 Bake version info into image for debugging
+
+Step 7 Build multi-platform images
+Create images for both AMD64 and ARM64 architectures.
+
+Commands to Run
+cat > .github/workflows/multiplatform.yml << 'EOF'
+name: Multi-Platform Build
+
+on: push
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Build for multiple platforms
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        platforms: linux/amd64,linux/arm64
+        push: false
+        tags: docker-ci-app:multiplatform
+
+git add .github/workflows/multiplatform.yml
+git commit -m 'Add multi-platform builds'
+git push
+
+What This Does
+QEMU emulates ARM on AMD64 runners. Buildx builds for both platforms in one command. Essential for supporting Mac M1/M2 (ARM) and Intel/AMD servers.
+
+Expected Outcome
+Two images built: one for AMD64 (typical servers), one for ARM64 (Mac M1/M2, AWS Graviton). Takes longer due to emulation.
+
+Pro Tips
+1 QEMU required for cross-platform builds
+2 ARM builds via emulation are slower
+3 Push to registry to create manifest list (next lesson)
+4 Native builders faster but require ARM hardware
+5 Test on target platforms when possible
+
+Step 8 Optimize layer caching strategy
+Structure Dockerfile for maximum cache efficiency in CI.
+
+Commands to Run
+cat > Dockerfile.optimized << 'EOF'
+# syntax=docker/dockerfile:1.4
+FROM node:20-alpine AS base
+
+# Build args
+ARG APP_VERSION=dev
+ARG GIT_COMMIT=unknown
+
+# Install dependencies in separate layer
+FROM base AS dependencies
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+
+# Final stage
+FROM base AS runtime
+WORKDIR /app
+
+# Environment from build args
+ENV APP_VERSION=${APP_VERSION} \
+    GIT_COMMIT=${GIT_COMMIT} \
+    NODE_ENV=production
+
+# Copy dependencies from previous stage
+COPY --from=dependencies /app/node_modules ./node_modules
+COPY package*.json ./
+
+# Application code last (changes most frequently)
+COPY app.js .
+
+EXPOSE 3000
+USER node
+CMD ["node", "app.js"]
+
+docker build -f Dockerfile.optimized -t docker-ci-app:optimized .
+docker build -f Dockerfile.optimized -t docker-ci-app:optimized .
+
+What This Does
+Multi-stage build separates dependencies from code. Second build is nearly instant - only app.js layer rebuilds. Dependencies cached perfectly. Also runs as non-root (USER node) for security.
+
+Expected Outcome
+First build: all stages execute. Second build (same command): cache hit on everything except app.js copy. Builds in <5 seconds.
+
+Pro Tips
+1 syntax=docker/dockerfile:1.4 enables modern features
+2 Separate stages for dependencies vs code
+3 Most stable (dependencies) to most volatile (code)
+4 USER node for security (no root)
+5 Multi-stage reduces final image size
+
+Step 9 Add image size optimization
+Minimize image size for faster pulls and deploys.
+
+Commands to Run
+cat > .dockerignore << 'EOF'
+node_modules
+npm-debug.log
+.git
+.gitignore
+README.md
+.env
+.github
+Dockerfile*
+.dockerignore
+
+docker build -f Dockerfile.optimized -t docker-ci-app:optimized .
+docker images docker-ci-app
+docker history docker-ci-app:optimized
+
+What This Does
+.dockerignore excludes files from build context. Reduces context size sent to Docker daemon. Speeds up builds and ensures secrets don't leak into images.
+
+Expected Outcome
+Image size reduced. docker images shows MB size. .github and other excluded files not in image. Build context upload faster.
+
+Pro Tips
+1 .dockerignore like .gitignore for Docker
+2 Exclude: .git, node_modules, docs, tests
+3 Smaller context = faster uploads to Docker daemon
+4 Essential for keeping secrets out of images
+5 Check with 'docker history' to verify layer sizes
+
+Step 10 Implement conditional builds
+Build only when code or Dockerfile changes.
+
+Commands to Run
+cat > .github/workflows/smart-build.yml << 'EOF'
+name: Smart Build
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'app.js'
+      - 'package*.json'
+      - 'Dockerfile*'
+      - '.github/workflows/smart-build.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Build
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: false
+        tags: docker-ci-app:smart
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+git add .dockerignore .github/workflows/smart-build.yml
+git commit -m 'Add smart conditional builds'
+git push
+echo '# Documentation' > README.md
+git add README.md
+git commit -m 'Update README'
+git push
+gh run list --limit 3
+
+What This Does
+paths: filter only triggers build when specified files change. README update doesn't trigger Docker build. Saves CI minutes and reduces noise.
+
+Expected Outcome
+First push (workflow file) triggers build. Second push (README) doesn't trigger - no code changed. Check gh run list to confirm.
+
+Pro Tips
+1 paths: prevents unnecessary builds
+2 Include: source code, dependencies, Dockerfile
+3 Exclude: docs, CI configs unrelated to build
+4 Saves significant CI time on active repos
+5 Combine with branch filters for fine control
+
+Step 11 Add build metadata labels
+Embed metadata in images for tracking and debugging.
+
+Commands to Run
+cat > .github/workflows/labeled-build.yml << 'EOF'
+name: Labeled Build
+
+on: push
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Build with labels
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: false
+        tags: docker-ci-app:labeled
+        labels: |
+          org.opencontainers.image.created=${{ github.event.head_commit.timestamp }}
+          org.opencontainers.image.revision=${{ github.sha }}
+          org.opencontainers.image.source=${{ github.repositoryUrl }}
+          org.opencontainers.image.url=https://github.com/${{ github.repository }}
+          org.opencontainers.image.authors=${{ github.actor }}
+
+git add .github/workflows/labeled-build.yml
+git commit -m 'Add image labels'
+git push
+sleep 60
+docker pull docker-ci-app:labeled || echo 'Run: docker build -t docker-ci-app:labeled .'
+docker inspect docker-ci-app:labeled --format '{{ json .Config.Labels }}' | jq
+
+What This Does
+OCI labels embed metadata in images. Includes creation time, commit SHA, source repo, author. Critical for debugging: 'Which commit is this image from?'
+
+Expected Outcome
+Image contains labels visible in docker inspect. Shows commit, timestamp, repo URL, author. Invaluable for production debugging.
+
+Pro Tips
+1 OCI labels are industry standard
+2 Include: version, commit, build date, source
+3 Labels don't increase image size meaningfully
+4 Essential for image provenance
+5 Container registries display these labels
+
+✓ Automate Docker image builds in GitHub Actions
+✓ Implement intelligent tagging strategies
+✓ Build multi-platform images for ARM and AMD64
+✓ Optimize builds with caching and layer structure
+✓ Add metadata for tracking and debugging
