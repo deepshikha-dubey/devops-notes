@@ -1,0 +1,326 @@
+204 — Persistent Volumes and Storage
+Master persistent storage in Kubernetes using Persistent Volumes, Persistent Volume Claims, and Storage Classes for stateful applications.
+
+Step 1 Create a Persistent Volume
+Define storage resources available in the cluster.
+
+Commands to Run
+cat > persistent-volume.yaml << 'EOF'
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: my-pv
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+  - ReadWriteOnce
+  hostPath:
+    path: /data/pv
+EOF
+
+kubectl apply -f persistent-volume.yaml
+kubectl get pv
+
+What This Does
+Persistent Volumes are cluster resources representing physical storage. Administrators provision PVs, users claim them with PVCs.
+
+Expected Outcome
+PV created with 1Gi capacity, STATUS shows Available, ACCESS MODES shows RWO.
+
+Pro Tips
+1. PVs are cluster-wide resources (not namespaced)
+2. AccessModes: ReadWriteOnce (RWO), ReadOnlyMany (ROX), ReadWriteMany (RWX)
+3. hostPath is for testing only - use cloud storage in production
+4. Status: Available → Bound → Released
+5. Reclaim policy: Retain, Delete, or Recycle
+
+Step 2 Create a Persistent Volume Claim
+Request storage for your application.
+
+Commands to Run
+cat > persistent-volume-claim.yaml << 'EOF'
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: my-pvc
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 500Mi
+EOF
+
+kubectl apply -f persistent-volume-claim.yaml
+kubectl get pvc
+kubectl get pv
+
+What This Does
+PVCs are requests for storage. Kubernetes binds PVCs to suitable PVs based on size and access modes.
+
+Expected Outcome
+PVC created and STATUS shows Bound. PV status changes from Available to Bound.
+
+Pro Tips
+1. PVCs are namespaced, PVs are not
+2. PVC requests minimum storage size
+3. Bound PVC is matched to a PV
+4. Binding considers: access mode, size, storage class, selectors
+5. One PV can only bind to one PVC
+
+Step 3 Use PVC in a Pod
+Mount persistent storage in a container.
+
+Commands to Run
+cat > pod-with-pvc.yaml << 'EOF'
+apiVersion: v1
+kind: Pod
+metadata:
+  name: storage-pod
+spec:
+  containers:
+  - name: app
+    image: alpine:latest
+    command: ["sh", "-c", "echo 'Hello from persistent storage' > /data/message.txt && sleep 3600"]
+    volumeMounts:
+    - name: storage
+      mountPath: /data
+  volumes:
+  - name: storage
+    persistentVolumeClaim:
+      claimName: my-pvc
+EOF
+
+kubectl apply -f pod-with-pvc.yaml
+kubectl exec storage-pod -- cat /data/message.txt
+
+What This Does
+Pods reference PVCs in volumes section. Data written to mountPath persists beyond pod lifetime.
+
+Expected Outcome
+Pod created. File written to /data persists on the PV.
+
+Pro Tips
+1. Multiple pods can use same PVC if access mode allows
+2. Data persists even if pod is deleted
+3. Pod and PVC must be in same namespace
+4. mountPath is where volume appears in container
+5. Data survives pod restarts and recreation
+
+Step 4 Test data persistence
+Verify data survives pod deletion and recreation.
+
+Commands to Run
+kubectl delete pod storage-pod
+kubectl apply -f pod-with-pvc.yaml
+kubectl exec storage-pod -- cat /data/message.txt
+
+What This Does
+Delete and recreate pod. Data persists because it's stored on the PV, not in the container.
+
+Expected Outcome
+File still exists with same content after pod recreation. Data persisted!
+
+Pro Tips
+1. This is the key benefit of persistent volumes
+2. Essential for databases, file uploads, logs
+3. Container storage is ephemeral, PV storage persists
+4. Backup PV data regularly in production
+5. Consider using VolumeSnapshots for backups
+
+Step 5 Create a Storage Class
+Enable dynamic provisioning of volumes.
+
+Commands to Run
+kubectl get storageclass
+Copy
+cat > storageclass.yaml << 'EOF'
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: fast-storage
+provisioner: kubernetes.io/no-provisioner
+volumeBindingMode: WaitForFirstConsumer
+EOF
+
+kubectl apply -f storageclass.yaml
+kubectl get sc
+
+What This Does
+Storage Classes enable dynamic volume provisioning. Cloud providers offer SSD, HDD, and other storage types.
+
+Expected Outcome
+Storage class created. Default storage class shown with (default) annotation.
+
+Pro Tips
+1. Storage Classes abstract storage details
+2. Cloud providers auto-create storage classes
+3. provisioner varies by platform (AWS: ebs, GCP: pd, Azure: disk)
+4. volumeBindingMode: Immediate or WaitForFirstConsumer
+5. Use for SSD vs HDD, different IOPS, backup policies
+6. Mark as default with annotation: storageclass.kubernetes.io/is-default-class: "true"
+
+Step 6 Use dynamic provisioning
+Create PVC that automatically provisions a PV.
+
+Commands to Run
+cat > dynamic-pvc.yaml << 'EOF'
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: dynamic-pvc
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: standard
+  resources:
+    requests:
+      storage: 1Gi
+EOF
+
+kubectl apply -f dynamic-pvc.yaml
+kubectl get pvc dynamic-pvc
+kubectl get pv
+
+What This Does
+Specifying storageClassName triggers dynamic provisioning. Storage Class provisioner creates PV automatically.
+
+Expected Outcome
+PVC created. On cloud providers, PV auto-created. On minikube, may stay Pending.
+
+Pro Tips
+1. No need to manually create PVs with dynamic provisioning
+2. Default storage class used if not specified
+3. On minikube, standard class uses hostPath
+4. Cloud providers create real disks (EBS, PD, etc.)
+5. Most production clusters use dynamic provisioning
+6. Deleting PVC may delete PV (depends on reclaim policy)
+
+Step 7 Use volumes in StatefulSets
+Create persistent storage for each pod in a StatefulSet.
+
+Commands to Run
+cat > statefulset-storage.yaml << 'EOF'
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: web
+spec:
+  serviceName: web
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:alpine
+        volumeMounts:
+        - name: data
+          mountPath: /usr/share/nginx/html
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 100Mi
+EOF
+
+kubectl apply -f statefulset-storage.yaml
+kubectl get pvc
+
+What This Does
+StatefulSets use volumeClaimTemplates to create unique PVC for each pod. Each pod gets its own persistent storage.
+
+Expected Outcome
+2 PVCs created: data-web-0 and data-web-1. Each pod has dedicated storage.
+
+Pro Tips
+1. StatefulSets create one PVC per replica
+2. PVC names include pod ordinal: [name]-[statefulset]-[ordinal]
+3. Essential for databases and stateful apps
+4. Scaling up creates new PVCs
+5. Scaling down doesn't delete PVCs (manual cleanup needed)
+6. Each pod maintains its storage across restarts
+
+Step 8 Resize a Persistent Volume Claim
+Expand storage capacity of existing PVC.
+
+Commands to Run
+kubectl patch pvc my-pvc -p '{"spec":{"resources":{"requests":{"storage":"2Gi"}}}}'
+kubectl get pvc my-pvc
+
+What This Does
+Some storage classes support volume expansion. Update PVC size to expand underlying volume.
+
+Expected Outcome
+PVC size updated. May require pod restart for filesystem resize.
+
+Pro Tips
+1. Storage class must allow volume expansion (allowVolumeExpansion: true)
+2. Can only increase size, not decrease
+3. Some volumes require pod restart to resize filesystem
+4. Check storage class: kubectl get sc [name] -o yaml
+5. Not all provisioners support expansion
+6. Cloud providers usually support this feature
+
+Step 9 View volume details and status
+Inspect volume configuration and bindings.
+
+Commands to Run
+kubectl describe pv
+kubectl describe pvc my-pvc
+kubectl get events --field-selector involvedObject.kind=PersistentVolumeClaim
+
+What This Does
+Detailed info shows capacity, access modes, reclaim policy, and mount status.
+
+Expected Outcome
+Full details of PVs and PVCs including status, capacity, and events.
+
+Pro Tips
+1. Check Status, Capacity, Access Modes, Reclaim Policy
+2. Events show provisioning, binding, and mount issues
+3. Use when troubleshooting storage problems
+4. Claim Ref shows which PVC bound to which PV
+5. StorageClass shows which class was used
+
+Step 10 Clean up storage resources
+Delete PVCs and understand reclaim policies.
+
+Commands to Run
+kubectl delete pod storage-pod
+kubectl delete pvc my-pvc dynamic-pvc
+kubectl get pv
+kubectl delete statefulset web
+kubectl delete pvc data-web-0 data-web-1
+kubectl delete pv my-pv
+rm -f *.yaml
+
+What This Does
+Deleting PVC may delete or retain PV based on reclaim policy (Delete, Retain, Recycle).
+
+Expected Outcome
+PVCs deleted. PVs status depends on reclaim policy. Manual PV requires explicit deletion.
+
+Pro Tips
+1. Reclaim policies: Delete (auto-delete PV), Retain (keep PV)
+2. Check policy before deleting production PVCs
+3. StatefulSet PVCs aren't auto-deleted with StatefulSet
+4. Always backup data before deleting storage
+5. Released PVs can't be rebound without manual cleanup
+6. Consider using VolumeSnapshots before deletion
+
+✓ Understand PVs, PVCs, and their relationship
+✓ Create and manage persistent storage
+✓ Use Storage Classes for dynamic provisioning
+✓ Mount persistent volumes in pods
+✓ Work with StatefulSets and volume templates
+✓ Expand and manage storage lifecycle
