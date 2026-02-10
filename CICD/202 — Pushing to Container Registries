@@ -1,0 +1,501 @@
+202 — Pushing to Container Registries
+Publish Docker images to registries automatically. Master Docker Hub, GitHub Container Registry (GHCR), authentication, and automated push workflows for deployable images.
+
+Step 1 Create Docker Hub access token
+Generate a secure token for CI/CD authentication.
+
+Commands to Run
+echo 'Visit: https://hub.docker.com/settings/security'
+echo 'Click: New Access Token'
+echo 'Description: GitHub Actions'
+echo 'Permissions: Read, Write, Delete'
+echo 'Copy token - you will not see it again!'
+What This Does
+Access tokens are more secure than passwords. They can be revoked independently and have granular permissions. Never commit tokens to Git.
+
+Expected Outcome
+Token generated and copied to clipboard. Keep it safe - you'll add it to GitHub secrets next.
+
+Pro Tips
+1. Use access tokens, never passwords in CI
+2. Tokens can be revoked without changing password
+3. Set minimal permissions needed
+4. Store in password manager immediately
+5. Never commit tokens to Git
+
+Step 2 Add credentials to GitHub secrets
+Store Docker Hub credentials securely in repository.
+
+Commands to Run
+cd docker-ci-app
+gh secret set DOCKER_USERNAME --body "your-dockerhub-username"
+gh secret set DOCKER_TOKEN --body "paste-token-here"
+gh secret list
+
+What This Does
+GitHub Secrets encrypt and store sensitive data. Accessible in workflows as ${{ secrets.NAME }}. Never exposed in logs. This is how to handle credentials in CI/CD.
+
+Expected Outcome
+Two secrets created: DOCKER_USERNAME and DOCKER_TOKEN. Listed but values hidden (encrypted).
+
+Pro Tips
+1. Secrets are encrypted at rest and in transit
+2. Not visible in workflow logs (auto-masked)
+3. Use gh secret set for command-line management
+4. Alternative: add via GitHub UI → Settings → Secrets
+5. Secrets available to all workflows in repo
+
+Step 3 Create Docker Hub push workflow
+Build and push images to Docker Hub automatically.
+
+Commands to Run
+cat > .github/workflows/dockerhub-push.yml << 'EOF'
+name: Push to Docker Hub
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_TOKEN }}
+    
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ secrets.DOCKER_USERNAME }}/docker-ci-app
+        tags: |
+          type=ref,event=branch
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=sha
+    
+    - name: Build and push
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+EOF
+
+git add .github/workflows/dockerhub-push.yml
+git commit -m 'Add Docker Hub push workflow'
+git push
+gh run watch
+
+What This Does
+login-action authenticates with Docker Hub using secrets. push: true actually pushes to registry (vs. local-only build). metadata-action generates smart tags based on branch/tag.
+
+Expected Outcome
+Workflow authenticates, builds, and pushes to Docker Hub. Image visible at hub.docker.com/r/[username]/docker-ci-app with multiple tags.
+
+Pro Tips
+1. push: true is what actually uploads to registry
+2. Login must happen before push
+3. Secrets never appear in logs (masked automatically)
+4. Multiple tags pushed simultaneously (no extra cost)
+5. First push may take 2-3 minutes
+
+Step 4 Verify image on Docker Hub
+Check published image and pull it locally.
+
+Commands to Run
+docker build -t %DOCKER_USERNAME%/docker-ci-app:main . docker push %DOCKER_USERNAME%/docker-ci-app:main
+echo 'Visit: https://hub.docker.com/r/'"$DOCKER_USERNAME"'/docker-ci-app'
+docker pull $DOCKER_USERNAME/docker-ci-app:main
+docker run -d -p 3000:3000 --name registry-test $DOCKER_USERNAME/docker-ci-app:main
+curl http://localhost:3000
+docker stop registry-test && docker rm registry-test
+
+What This Does
+Docker Hub is public by default. Anyone can docker pull your-username/image:tag. Verify image works by pulling and running from registry, not local build.
+
+Expected Outcome
+Image pulls from Docker Hub (not local cache). Container runs successfully. Curl returns JSON response. Image is publicly accessible.
+
+Pro Tips
+1. Replace $DOCKER_USERNAME with your actual username
+2. Public images are free on Docker Hub
+3. Private repos: 1 free, then paid
+4. docker pull downloads from registry
+5. Test pulling on different machine to verify
+
+Step 5 Set up GitHub Container Registry
+Use GHCR for tight GitHub integration and unlimited public images.
+
+Commands to Run
+gh auth refresh -s write:packages
+Copy
+cat > .github/workflows/ghcr-push.yml << 'EOF'
+name: Push to GHCR
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ghcr.io/${{ github.repository_owner }}/docker-ci-app
+        tags: |
+          type=ref,event=branch
+          type=semver,pattern={{version}}
+          type=sha
+    
+    - name: Build and push
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+EOF
+
+git add .github/workflows/ghcr-push.yml
+git commit -m 'Add GHCR push workflow'
+git push
+What This Does
+GHCR (ghcr.io) is GitHub's container registry. Uses built-in GITHUB_TOKEN (no extra secrets needed). permissions: packages: write grants access. Integrated with GitHub UI.
+
+Expected Outcome
+Image pushed to ghcr.io/[username]/docker-ci-app. Visible in GitHub → Packages tab. No extra authentication setup needed.
+
+Pro Tips
+1. GHCR: unlimited public packages for free
+2. GITHUB_TOKEN automatic - no manual secrets
+3. permissions: packages: write required
+4. Images linked to GitHub repo automatically
+5. Better for GitHub-centric workflows
+
+Step 6 Pull from GitHub Container Registry
+Authenticate and pull images from GHCR.
+
+Commands to Run
+echo $GITHUB_TOKEN | docker login ghcr.io -u $GITHUB_USER --password-stdin
+docker build -t ghcr.io/deepshikha-dubey/docker-ci-app:main .
+docker push ghcr.io/deepshikha-dubey/docker-ci-app:main
+docker pull ghcr.io/$GITHUB_USER/docker-ci-app:main
+docker run -d -p 3000:3000 --name ghcr-test ghcr.io/$GITHUB_USER/docker-ci-app:main
+curl http://localhost:3000
+docker stop ghcr-test && docker rm ghcr-test
+docker logout ghcr.io
+
+What This Does
+Public GHCR images don't require auth to pull, but best practice to authenticate. Uses GitHub PAT (Personal Access Token) or gh CLI for credentials.
+
+Expected Outcome
+Image pulls from GHCR successfully. Container runs. Always logout after to avoid credential leaks.
+
+Pro Tips
+1. Replace $GITHUB_USER with your GitHub username
+2. Public packages: no auth needed to pull
+3. Private packages: requires authentication
+4. Use gh auth token for GITHUB_TOKEN value
+5. Always docker logout on shared machines
+
+Step 7 Implement multi-registry push
+Push same image to multiple registries simultaneously.
+
+Commands to Run
+cat > .github/workflows/multi-registry.yml << 'EOF'
+name: Multi-Registry Push
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_TOKEN }}
+    
+    - name: Login to GHCR
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: |
+          ${{ secrets.DOCKER_USERNAME }}/docker-ci-app
+          ghcr.io/${{ github.repository_owner }}/docker-ci-app
+        tags: |
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+    
+    - name: Build and push to all registries
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+EOF
+
+cat .github/workflows/multi-registry.yml
+
+What This Does
+Multiple login-action calls authenticate to different registries. metadata-action with multiple images: creates tags for all. One build, multiple pushes - efficient.
+
+Expected Outcome
+Workflow pushes same image to Docker Hub AND GHCR simultaneously. Both registries contain identical images with same tags.
+
+Pro Tips
+1. Login to all registries before pushing
+2. List all target images in metadata-action
+3. Image built once, pushed multiple times (efficient)
+4. Use for redundancy or different audiences
+5. Triggers only on version tags (v*.*.*)
+
+
+Step 8 Add image readme and description
+Document images with README and repository metadata.
+
+Commands to Run
+cat > README.md << 'EOF'
+# Docker CI App
+
+![Docker Pulls](https://img.shields.io/docker/pulls/username/docker-ci-app)
+![Docker Image Size](https://img.shields.io/docker/image-size/username/docker-ci-app/latest)
+
+## Quick Start
+
+```bash
+docker pull username/docker-ci-app:latest
+docker run -p 3000:3000 username/docker-ci-app:latest
+curl http://localhost:3000
+```
+
+## Available Tags
+
+- `latest` - Most recent main branch
+- `main` - Main branch
+- `v1.0.0` - Specific versions
+- `sha-abc123` - Specific commits
+
+## Registries
+
+- Docker Hub: `docker pull username/docker-ci-app`
+- GHCR: `docker pull ghcr.io/username/docker-ci-app`
+
+## Environment Variables
+
+- `PORT` - Server port (default: 3000)
+- `APP_VERSION` - Application version
+- `GIT_COMMIT` - Git commit SHA
+EOF
+
+git add README.md
+git commit -m 'Add comprehensive README'
+git push
+
+What This Does
+Docker Hub displays README.md from GitHub repo. Good documentation increases adoption. Include: usage, tags, env vars, examples.
+
+Expected Outcome
+README appears on Docker Hub repository page. Users know how to pull and run your image.
+
+Pro Tips
+1. README.md auto-syncs to Docker Hub (if linked)
+2. Include badges for pulls, size, build status
+3. Document all environment variables
+4. Show example docker run commands
+5. List all available tags and their meanings
+
+Step 9 Implement retention policies
+Clean up old images automatically to save storage.
+
+Commands to Run
+cat > .github/workflows/cleanup.yml << 'EOF'
+name: Cleanup Old Images
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly on Sunday
+  workflow_dispatch:  # Manual trigger
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    
+    steps:
+    - name: Delete old GHCR images
+      uses: actions/delete-package-versions@v5
+      with:
+        package-name: 'docker-ci-app'
+        package-type: 'container'
+        min-versions-to-keep: 10
+        delete-only-untagged-versions: 'true'
+EOF
+
+cat .github/workflows/cleanup.yml
+
+What This Does
+Scheduled cleanup prevents GHCR storage bloat. Keeps 10 recent versions, deletes untagged (usually intermediates). Runs weekly. workflow_dispatch allows manual triggering.
+
+Expected Outcome
+Workflow scheduled to run weekly. Keeps recent images, removes old untagged versions. Prevents hitting storage limits.
+
+Pro Tips
+1. schedule: cron runs periodically
+2. min-versions-to-keep preserves recent images
+3. delete-only-untagged-versions: true keeps releases
+4. workflow_dispatch allows manual cleanup
+5. GHCR has storage limits even on free tier
+
+Step 10 Add image provenance attestation
+Sign images with provenance metadata for security and compliance.
+
+Commands to Run
+cat > .github/workflows/provenance.yml << 'EOF'
+name: Build with Provenance
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write  # For provenance
+      attestations: write
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Login to GHCR
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ghcr.io/${{ github.repository_owner }}/docker-ci-app
+    
+    - name: Build and push with provenance
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        provenance: true
+        sbom: true
+EOF
+
+cat .github/workflows/provenance.yml
+
+What This Does
+provenance: true creates attestation showing: who built, when, from what source. sbom: true (Software Bill of Materials) lists all dependencies. Critical for supply chain security.
+
+Expected Outcome
+Images include provenance and SBOM attestations. Users can verify image authenticity. Compliance with security standards.
+
+Pro Tips
+1. Provenance proves image origin
+2. SBOM lists all software components
+3. Required for many enterprise environments
+4. id-token: write needed for signing
+5. View attestations with: docker buildx imagetools inspect
+
+Step 11 Test full publish workflow
+Create release tag to trigger complete publish pipeline.
+
+Commands to Run
+git tag -a v1.0.0 -m 'Release version 1.0.0'
+git push origin v1.0.0
+gh run watch
+docker pull $DOCKER_USERNAME/docker-ci-app:1.0.0
+docker pull ghcr.io/$GITHUB_USER/docker-ci-app:1.0.0
+docker images | grep docker-ci-app
+
+What This Does
+Version tag triggers all registry push workflows. Creates v1.0.0, 1.0, and latest tags on both Docker Hub and GHCR. Full production release process.
+
+Expected Outcome
+Workflows trigger on tag. Images pushed to both registries with semantic version tags. Successfully pulled from both sources.
+
+Pro Tips
+1. Semantic versioning: v{major}.{minor}.{patch}
+2. Tag triggers release workflows
+3. Creates: exact (1.0.0), minor (1.0), and latest
+4. Both registries get same versions
+5. Users can pin to exact version or track latest
+
+
+✓ Authenticate securely with Docker Hub and GHCR
+✓ Push images automatically from CI/CD
+✓ Implement multi-registry publishing
+✓ Manage image versions and tags
+✓ Add provenance and security attestations
