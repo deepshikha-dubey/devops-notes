@@ -1,0 +1,70 @@
+101 — Introduction to IaC & Terraform
+Understand what Infrastructure as Code is, why it matters, and how to install and verify Terraform on your local machine.
+
+install terraform
+terraform version: The `version` subcommand shows the installed version.
+where/which terraform : The `which` command shows where the Terraform binary is located (on Windows without WSL, use `where terraform` instead).
+
+terraform -help: A list of all Terraform commands with brief descriptions, organized by category (Main commands, Other commands).
+Usage: terraform [global options] <subcommand> [args]
+
+The available commands for execution are listed below.
+The primary workflow commands are given first, followed by
+less common or more advanced commands.
+
+Main commands:
+  init          Prepare your working directory for other commands
+  validate      Check whether the configuration is valid
+  plan          Show changes required by the current configuration
+  apply         Create or update infrastructure
+  destroy       Destroy previously-created infrastructure
+
+All other commands:
+  console       Try Terraform expressions at an interactive command prompt
+  fmt           Reformat your configuration in the standard style
+  force-unlock  Release a stuck lock on the current workspace
+  get           Install or upgrade remote Terraform modules
+  graph         Generate a Graphviz graph of the steps in an operation
+  import        Associate existing infrastructure with a Terraform resource
+  login         Obtain and save credentials for a remote host
+  logout        Remove locally-stored credentials for a remote host
+  metadata      Metadata related commands
+  modules       Show all declared modules in a working directory
+  output        Show output values from your root module
+  providers     Show the providers required for this configuration
+  query         Search and list remote infrastructure with Terraform
+  refresh       Update the state to match remote systems
+  show          Show the current state or a saved plan
+  stacks        Manage HCP Terraform stack operations
+  state         Advanced state management
+  taint         Mark a resource instance as not fully functional
+  test          Execute integration tests for Terraform modules
+  untaint       Remove the 'tainted' state from a resource instance
+  version       Show the current Terraform version
+  workspace     Workspace management
+
+Global options (use these before the subcommand, if any):
+  -chdir=DIR    Switch to a different working directory before executing the
+                given subcommand.
+  -help         Show this help output or the help for a specified subcommand.
+  -version      An alias for the "version" subcommand.
+
+* Understand the core workflow
+  Learn the fundamental Terraform workflow that you'll use for every infrastructure change.
+terraform init -help
+terraform plan -help
+terraform apply -help
+
+What This Does
+The core Terraform workflow is: **Write** (create .tf files) -> **Init** (download providers) -> **Plan** (preview changes) -> **Apply** (make changes). This workflow ensures you always know what will change before it happens.
+
+Expected Outcome
+Detailed help for each command showing available flags and usage patterns.
+
+Pro Tips
+1. Always run `terraform plan` before `terraform apply`
+2. Review the plan output carefully - it shows exactly what will be created, changed, or destroyed
+
+- Why IaC matters (version control, repeatability, collaboration)
+- The Terraform core workflow: Write -> Init -> Plan -> Apply
+- How to verify your installation and access help
