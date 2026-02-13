@@ -1,0 +1,72 @@
+102 — Providers & Local Resources
+Learn how Terraform providers work and create your first resources using the local provider to manage files on your machine.
+
+Create a provider configuration
+Create a main.tf file that configures the local provider. The local provider lets us manage files on our machine.
+cat > main.tf << 'EOF'
+terraform {
+  required_providers {
+    local = {
+      source  = "hashicorp/local"
+      version = "~> 2.4"
+    }
+  }
+}
+
+provider "local" {
+  # No configuration needed for the local provider
+}
+EOF
+
+What This Does
+The `terraform` block declares required providers with their source and version. The `provider` block configures the provider. The local provider requires no configuration since it operates on your local filesystem.
+
+Run terraform init to download the local provider plugin.
+
+Commands to Run
+terraform init
+
+What This Does
+Terraform init reads your configuration, identifies required providers, and downloads them to the `.terraform` directory. It also creates a lock file to ensure consistent provider versions.
+
+Add a local_file resource
+Add a resource block to create a file on your local filesystem.
+
+Commands to Run
+cat >> main.tf << 'EOF'
+
+resource "local_file" "hello" {
+  filename = "${path.module}/hello.txt"
+  content  = "Hello from Terraform!\nThis file was created by Infrastructure as Code."
+}
+EOF
+
+What This Does
+The `resource` block defines infrastructure to manage. The syntax is `resource "<type>" "<name>"`. Here we're creating a `local_file` named `hello`. The `path.module` variable references the current directory.
+
+Expected Outcome
+The main.tf file now contains both the provider and resource configuration.
+
+Examine the state file
+Look at how Terraform tracks the resources it manages.
+
+Commands to Run
+cat terraform.tfstate
+
+What This Does
+The state file is JSON that records what Terraform has created. It maps your configuration to real resources. Never edit this file manually - let Terraform manage it.
+
+Expected Outcome
+A JSON file showing the local_file resource with its attributes like filename, content, and a unique ID.
+
+Pro Tips
+1. State files can contain sensitive data - don't commit them to Git
+2. In production, use remote state backends (covered in later lessons)
+Common Mistakes to Avoid
+⚠️
+Manually editing terraform.tfstate will corrupt Terraform's understanding of your infrastructure
+
+- How providers connect Terraform to different platforms
+- The resource block syntax for declaring infrastructure
+- The complete init -> plan -> apply workflow
+- How Terraform tracks resources in state files
