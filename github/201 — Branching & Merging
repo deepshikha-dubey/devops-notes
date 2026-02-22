@@ -1,0 +1,274 @@
+201 — Branching & Merging
+Master Git branches to work on features independently and merge changes back together. Learn the branching workflow used by professional developers.
+
+Step 1 Create a workspace for this lesson
+Set up a fresh directory with an initialized Git repository and some initial commits to work with.
+Commands to Run
+mkdir -p ~/git-practice/lesson-201
+cd ~/git-practice/lesson-201
+git init
+What This Does
+We're creating a new workspace for this lesson to keep things organized. Starting fresh helps you focus on branching concepts without confusion from previous work.
+
+Expected Outcome
+You should see "Initialized empty Git repository" message and be in the lesson-201 directory
+
+Step 2 Create initial content
+Add a few files and commits to establish a baseline project. Branches need something to branch from!
+
+Commands to Run
+echo "# My Project" > README.md
+git add README.md
+git commit -m "Initial commit: Add README"
+echo "console.log('Hello, World!');" > app.js
+git add app.js
+git commit -m "Add main application file"
+What This Does
+These commits create a main branch with some content. In real projects, your main branch contains your stable, production-ready code.
+
+Expected Outcome
+Running `git log --oneline` should show two commits. Your main branch is now established.
+
+Step 3 View existing branches
+Learn to see what branches exist in your repository and which one you're currently on.
+
+Commands to Run
+git branch
+What This Does
+`git branch` lists all local branches. The branch with an asterisk (*) is your current branch. Right now, you only have the main branch.
+
+Expected Outcome
+You should see `* main` (or `* master`), indicating you're on the main branch.
+
+Step 4 Create your first feature branch
+Create a new branch to work on a feature independently from the main branch.
+
+Commands to Run (git branch feature-login)
+
+What This Does
+Branches are pointers to commits. Creating a branch doesn't change your working directory - it just creates a new pointer. You're still on the main branch until you switch.
+
+Step 5 Switch to the new branch
+Move to your feature branch so changes you make won't affect the main branch.
+
+Commands to Run (git checkout feature-login)
+
+What This Does
+`git checkout` switches your working directory to the specified branch. Now any commits you make will be on the feature-login branch, not main.
+
+Step 6 Make commits on the feature branch
+Add a login feature on your branch. These changes won't affect the main branch.
+
+Commands to Run
+echo "function login(user, pass) { /* TODO */ }" > login.js
+git add login.js
+git commit -m "Add login function skeleton"
+echo "function logout() { /* TODO */ }" >> login.js
+git add login.js
+git commit -m "Add logout function"
+
+What This Does
+These commits exist only on the feature-login branch. The main branch is unchanged and still has only two commits. This isolation lets you experiment safely.
+
+Step 7 Compare branches
+See the differences between your feature branch and the main branch.
+
+Commands to Run
+git log --oneline --all --graph
+ls
+
+What This Does
+The `--all --graph` flags show all branches and their relationships visually. Notice how the branches have diverged. The `ls` command shows login.js exists here.
+
+Expected Outcome
+You should see a visual graph showing both branches. You'll see login.js in the file list.
+
+Step 8 Switch back to main branch
+Return to the main branch to see that your feature changes aren't there yet.
+
+Commands to Run
+git checkout main
+ls
+git log --oneline
+What This Does
+When you switch branches, your working directory changes to reflect that branch's content. Notice that login.js disappears - it only exists on the feature branch.
+
+Expected Outcome
+login.js is not in the file list, and `git log` shows only 2 commits. Your feature work is safely stored in the feature-login branch.
+
+Pro Tips
+1. Files in your working directory change when you switch branches
+2. Uncommitted changes can prevent branch switching - commit or stash first
+
+Step 9 Merge the feature branch
+Bring your feature work into the main branch by merging.
+
+Commands to Run
+git merge feature-login
+git log --oneline --graph
+
+What This Does
+`git merge` combines the histories of two branches. Since main had no new commits while you worked on the feature, Git does a 'fast-forward' merge - it just moves the main pointer forward.
+
+Expected Outcome
+You should see "Fast-forward" and the log now shows all 4 commits on main. login.js now appears in `ls`.
+
+Pro Tips
+1. Always merge INTO the branch you want to update (checkout main, then merge feature)
+2. Fast-forward merges are the simplest type
+
+Step 10
+Delete the feature branch
+Clean up by removing the feature branch now that it's been merged.
+
+Commands to Run (git branch -d feature-login)
+
+What This Does
+After merging, the feature branch is no longer needed. The `-d` flag safely deletes branches that have been merged. Your commits are still in the history.
+
+Expected Outcome
+You should see "Deleted branch feature-login" and only main remains in `git branch`.
+
+Pro Tips
+1. Use `-d` for safe deletion (only works if merged)
+2. Use `-D` to force-delete an unmerged branch (use carefully!)
+
+Step 11 Practice: Non-fast-forward merge
+Create a scenario where both branches have new commits, requiring a merge commit.
+
+Commands to Run
+git checkout -b feature-signup
+echo "function signup() { /* TODO */ }" > signup.js
+git add signup.js
+git commit -m "Add signup feature"
+git checkout main
+echo "## Installation" >> README.md
+git add README.md
+git commit -m "Update README with installation steps"
+
+What This Does
+Now both branches have moved forward independently. This creates a divergent history that requires a real merge commit.
+
+Expected Outcome
+Running `git log --oneline --all --graph` should show the branches have diverged with different commits.
+
+Pro Tips
+1.This is the typical workflow in team environments
+2.Both branches have valid work that needs to be combined
+
+Step 13 Create a merge conflict (intentionally)
+Learn to handle merge conflicts by creating one on purpose.
+
+Commands to Run
+git checkout -b feature-modify-app
+echo "console.log('Starting app...');" > app.js
+git add app.js
+git commit -m "Add startup message"
+git checkout main
+echo "console.log('Application initialized');" > app.js
+git add app.js
+git commit -m "Add initialization message"
+
+What This Does
+Both branches modified app.js differently. When we try to merge, Git won't know which version to keep - this creates a conflict that requires human decision.
+
+Expected Outcome
+Both commits succeed. The branches now have conflicting changes to the same file.
+
+Pro Tips
+1 Conflicts happen when the same lines of a file are changed in different branches
+2 Conflicts are normal in team development - don't panic!
+
+Step 14 Attempt the merge and see the conflict
+Try to merge the conflicting branch and observe what happens.
+
+Commands to Run
+git merge feature-modify-app
+git status
+
+What This Does
+Git detects the conflict and stops the merge. The file is left in a special state with conflict markers showing both versions. You must resolve it manually.
+
+Expected Outcome
+You should see "CONFLICT (content): Merge conflict in app.js" and "Automatic merge failed". `git status` shows app.js as "both modified".
+
+Pro Tips
+1. Don't panic - conflicts are easy to fix
+2. Git marks the conflicting sections in the file with special markers
+
+Step 15 View the conflict markers
+Look at the conflicted file to understand how Git marked the conflict.
+
+Commands to Run
+cat app.js ( in local type app.js )
+
+What This Does
+Git inserts conflict markers into the file: `<<<<<<< HEAD` (your current branch), `=======` (separator), and `>>>>>>> feature-modify-app` (the incoming branch). You decide what to keep.
+
+Expected Outcome
+You should see the conflict markers with both versions of the code between them.
+
+Pro Tips
+1 Everything between <<<< and ==== is from your current branch
+2 Everything between ==== and >>>> is from the branch you're merging
+3 You can keep one, both, or write something entirely new
+
+Step 16 Resolve the conflict
+Edit the file to resolve the conflict by choosing what to keep.
+
+Commands to Run
+echo "console.log('Application initialized and starting...');" > app.js
+cat app.js
+
+What This Does
+We've resolved the conflict by creating a new version that combines the intent of both changes. In practice, you'd use a text editor to carefully merge the changes.
+
+Expected Outcome
+app.js now contains only your resolved version, with no conflict markers.
+
+Pro Tips
+1 Remove ALL conflict markers (<<<<<, =====, >>>>>)
+2 Make sure the final code makes sense and works
+3 You can test the code before committing
+
+Step 17 Complete the merge
+Stage the resolved file and commit to finish the merge.
+
+Commands to Run
+git add app.js
+git status
+git commit -m "Merge feature-modify-app and resolve conflict"
+git log --oneline --graph
+
+What This Does
+After resolving conflicts and staging the file, commit to complete the merge. Git knows you're in the middle of a merge and creates a merge commit.
+
+Expected Outcome
+The merge is complete. `git status` shows a clean working tree, and the log shows the merge commit.
+
+Pro Tips
+1 Always run `git status` to ensure all conflicts are resolved
+2 The commit message should mention what was merged and how conflicts were resolved
+
+Step 18 Clean up
+Delete the merged feature branches to keep your branch list clean.
+
+Commands to Run
+git branch -d feature-signup feature-modify-app
+git branch
+
+What This Does
+After merging, feature branches are usually deleted. The work is preserved in the commit history. Keeping the branch list clean makes it easier to see what's in progress.
+
+Expected Outcome
+Both feature branches are deleted. Only main remains.
+
+Pro Tips
+1 You can delete multiple branches in one command
+2 Regularly clean up merged branches
+
+✓ Creating and switching between branches
+✓ Working on features in isolation
+✓ Merging branches (both fast-forward and merge commits)
+✓ Resolving merge conflicts
+
