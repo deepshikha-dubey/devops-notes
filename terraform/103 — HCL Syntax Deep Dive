@@ -1,0 +1,181 @@
+103 — HCL Syntax Deep Dive
+Master HashiCorp Configuration Language (HCL) syntax including blocks, arguments, expressions, and data types.
+
+Step 1 Create a configuration with various data types
+Create a file demonstrating HCL's different data types: strings, numbers, bools, lists, and maps.
+
+Commands to Run
+cat > main.tf << 'EOF'
+terraform {
+  required_providers {
+    local = {
+      source  = "hashicorp/local"
+      version = "~> 2.4"
+    }
+  }
+}
+
+# Local values demonstrate different data types
+locals {
+  # String
+  project_name = "my-terraform-project"
+
+  # Number
+  instance_count = 3
+
+  # Boolean
+  enable_logging = true
+
+  # List (ordered collection)
+  environments = ["dev", "staging", "prod"]
+
+  # Map (key-value pairs)
+  tags = {
+    Environment = "development"
+    Team        = "platform"
+    ManagedBy   = "terraform"
+  }
+}
+EOF
+
+What This Does
+HCL supports strings, numbers, booleans, lists, and maps. The `locals` block defines named values you can reference elsewhere. Comments start with `#`.
+
+Expected Outcome
+A main.tf file with various data type examples.
+
+Pro Tips
+1. Lists use square brackets [], maps use curly braces {}
+2. Strings must use double quotes in HCL (single quotes are not valid)
+
+Step 2 Add resources using expressions
+Add resources that reference local values using HCL expressions.
+
+Commands to Run
+cat >> main.tf << 'EOF'
+
+# Using string interpolation
+resource "local_file" "config" {
+  filename = "${path.module}/${local.project_name}-config.txt"
+  content  = <<-CONTENT
+    Project: ${local.project_name}
+    Instances: ${local.instance_count}
+    Logging: ${local.enable_logging}
+    Environments: ${join(", ", local.environments)}
+  CONTENT
+}
+
+# Using a for expression to create multiple files
+resource "local_file" "env_files" {
+  for_each = toset(local.environments)
+
+  filename = "${path.module}/${each.value}.env"
+  content  = "ENVIRONMENT=${each.value}\nPROJECT=${local.project_name}"
+}
+EOF
+
+What This Does
+String interpolation uses `${...}`. The `<<-CONTENT...CONTENT` syntax creates heredoc strings. The `for_each` meta-argument creates one resource instance per item. Functions like `join()` and `toset()` transform data.
+
+Expected Outcome
+main.tf now has resources using expressions and references.
+
+Pro Tips
+1. Use heredoc for multi-line strings
+2. The `each.value` and `each.key` are available inside for_each blocks
+
+Step 3 Initialize and validate
+Initialize the provider and validate your configuration syntax.
+
+Commands to Run
+terraform init
+Copy
+terraform validate
+
+What This Does
+The `validate` command checks your configuration for syntax errors and internal consistency without accessing any remote services.
+
+Expected Outcome
+Both commands succeed. Validate shows: `Success! The configuration is valid.`
+
+Pro Tips
+1. Run validate after making changes to catch errors early
+2.Validate doesn't check if resources will actually work, just syntax
+
+Step 4 Format the configuration
+Use Terraform's built-in formatter to ensure consistent style.
+
+Commands to Run
+terraform fmt
+cat main.tf
+
+What This Does
+The `fmt` command automatically formats .tf files to the canonical HCL style. It adjusts spacing, alignment, and indentation. This ensures consistency across teams.
+
+Expected Outcome
+Any formatting changes are applied. The file now has consistent alignment of equals signs and proper indentation.
+
+Pro Tips
+1 Add `terraform fmt` to your pre-commit hooks
+2 Use `terraform fmt -check` in CI to fail if files aren't formatted
+
+Step 5 Plan and apply
+See how the expressions evaluate and create the resources.
+
+Commands to Run
+terraform plan
+terraform apply -auto-approve
+
+What This Does
+The plan shows how expressions are evaluated to real values. With `for_each`, you'll see multiple resource instances being created.
+
+Expected Outcome
+Plan shows 4 resources to add (1 config file + 3 env files). Apply creates them all.
+
+Pro Tips
+1 Resources with for_each are named like local_file.env_files["dev"]
+
+Step 6 Verify the created files
+Check that all files were created with the expected content.
+
+Commands to Run
+ls -la *.txt *.env (dir *.txt *.env /a)
+cat my-terraform-project-config.txt
+cat dev.env
+
+What This Does
+Terraform created one config file with interpolated values and three environment files (one for each environment in our list).
+
+Expected Outcome
+You should see 4 files: my-terraform-project-config.txt, dev.env, staging.env, prod.env. Each contains the expected content.
+
+Pro Tips
+1 The for_each pattern is very powerful for creating multiple similar resources
+
+Step 7 Use terraform console
+Experiment with HCL expressions in the interactive console.
+
+Commands to Run
+echo 'local.environments' | terraform console
+echo 'local.tags["Team"]' | terraform console
+echo 'upper(local.project_name)' | terraform console
+
+What This Does
+The `terraform console` command provides an interactive environment to test expressions and functions. It's great for debugging and learning.
+
+Expected Outcome
+Each command outputs the evaluated expression:
+- The list of environments
+- The value "platform"
+- "MY-TERRAFORM-PROJECT"
+
+Pro Tips
+1. Use console to test complex expressions before putting them in config
+2. Type `exit` or Ctrl+D to exit interactive console mode
+
+
+- Work with all HCL data types (strings, numbers, bools, lists, maps)
+- Use expressions and string interpolation
+- Reference local values and use functions
+- Format and validate your configurations
+- Use for_each to create multiple resources
