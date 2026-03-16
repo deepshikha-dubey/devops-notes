@@ -2,38 +2,28 @@ mini‑project demo Docker Volume and Network
 
 🌐 + 📂 Combined Demo: Web + Database App
 Step 1: Network बनाइए
-bash
+
 docker network create appnet
 👉 यह containers को आपस में connect करने के लिए bridge बनाएगा।
 
 Step 2: Database container (MySQL) चलाइए और volume attach कीजिए
-bash
+
 docker volume create dbdata
 docker run -d --name mydb --network appnet -v dbdata:/var/lib/mysql mysql:latest
 👉 अब database का data dbdata volume में safe रहेगा।
 👉 Container हटाने पर भी data volume में बचा रहेगा।
 
 Step 3: Web server container (Nginx) चलाइए
-bash
+
 docker run -d --name myweb --network appnet nginx:latest
 👉 यह web server उसी network (appnet) पर है, इसलिए myweb container mydb से communicate कर सकता है।
 
 Step 4: Verify करें
-Volumes list:
+Volumes list:  docker volume ls
+Networks list: docker network ls
+Containers list: docker ps
 
-bash
-docker volume ls
-Networks list:
-
-bash
-docker network ls
-Containers list:
-
-bash
-docker ps
 🎯 Summary
 Volume (dbdata) → Database का data safe रखता है।
-
 Network (appnet) → Web और DB containers को जोड़ता है।
-
 Result → Web + DB app जो data loss से safe है और आपस में connected है।
